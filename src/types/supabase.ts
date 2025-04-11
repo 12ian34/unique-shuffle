@@ -49,6 +49,35 @@ export interface Database {
           created_at?: string
         }
       }
+      global_shuffles: {
+        Row: {
+          id: number
+          user_id: string | null
+          is_saved: boolean
+          cards: Json
+          created_at: string
+          share_code: string | null
+          is_shared: boolean
+        }
+        Insert: {
+          id?: number
+          user_id?: string | null
+          is_saved?: boolean
+          cards: Json
+          created_at?: string
+          share_code?: string | null
+          is_shared?: boolean
+        }
+        Update: {
+          id?: number
+          user_id?: string | null
+          is_saved?: boolean
+          cards?: Json
+          created_at?: string
+          share_code?: string | null
+          is_shared?: boolean
+        }
+      }
       users: {
         Row: {
           id: string
@@ -68,7 +97,16 @@ export interface Database {
       }
     }
     Views: {
-      [_ in never]: never
+      shuffles_view: {
+        Row: {
+          id: number
+          user_id: string | null
+          cards: Json
+          created_at: string
+          share_code: string | null
+          is_shared: boolean
+        }
+      }
     }
     Functions: {
       [_ in never]: never

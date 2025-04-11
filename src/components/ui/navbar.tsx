@@ -1,10 +1,13 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { GlobalShuffleCount } from '@/components/global-shuffle-count'
+import { GlobalShuffleCounter } from '@/components/global-shuffle-counter'
+import { createBrowserClient } from '@supabase/ssr'
+import { Database } from '@/types/supabase'
+import { UserStats, Card as CardType } from '@/types'
 
 interface NavItem {
   label: string
@@ -13,28 +16,146 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    label: 'Home',
+    label: 'shuffle',
     href: '/',
   },
   {
-    label: 'Shuffle',
-    href: '/shuffle',
+    label: 'achievements',
+    href: '/achievements',
   },
   {
-    label: 'Leaderboard',
-    href: '/leaderboard',
+    label: 'leaderboard',
+    href: '/stats',
   },
   {
-    label: 'Analytics',
+    label: 'analytics',
     href: '/analytics',
   },
   {
-    label: 'Profile',
+    label: 'profile',
     href: '/profile',
   },
 ]
 
-export function Navbar() {
+export function NavbarWithStats() {
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
+  const statsTimestampRef = useRef<number>(0)
+
+  // Use a shared Supabase client
+  const supabase = useMemo(
+    () =>
+      createBrowserClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
+  )
+
+  const loadUserStats = useCallback(async () => {
+    try {
+      // Don't reload stats more than once per second to prevent performance issues
+      const now = Date.now()
+      if (now - statsTimestampRef.current < 1000 && !isLoading) {
+        return
+      }
+      statsTimestampRef.current = now
+
+      setIsLoading(true)
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setIsLoading(false)
+        setStats(null)
+        return
+      }
+
+      // Just get stats from leaderboard table without complex calculation
+      const { data: leaderboardData, error: leaderboardError } = await supabase
+        .from('leaderboard')
+        .select('total_shuffles, shuffle_streak, achievements_count')
+        .eq('user_id', user.id)
+        .single()
+
+      if (leaderboardError) {
+        // If no data, just set zeros (will be created by save API later)
+        setStats({
+          total_shuffles: 0,
+          shuffle_streak: 0,
+          achievements_count: 0,
+          most_common_cards: [],
+        })
+      } else {
+        // Create minimal stats object for navbar
+        const newStats: UserStats = {
+          total_shuffles: leaderboardData.total_shuffles || 0,
+          shuffle_streak: leaderboardData.shuffle_streak || 0,
+          achievements_count: leaderboardData.achievements_count || 0,
+          most_common_cards: [],
+        }
+
+        setStats(newStats)
+      }
+    } catch (error) {
+      console.error('Failed to load user stats for navbar:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase, isLoading])
+
+  useEffect(() => {
+    // Initial load
+    loadUserStats()
+
+    // Only setup the subscription once
+    if (subscriptionRef.current) return
+
+    // Add listener for custom refresh event - this will sync with shuffle actions
+    const handleRefreshEvent = () => {
+      loadUserStats()
+    }
+    window.addEventListener('refresh-global-counter', handleRefreshEvent)
+
+    // Subscribe to leaderboard changes directly instead of global_shuffles
+    // This will only trigger when the actual stats change
+    const leaderboardSubscription = supabase
+      .channel('navbar-user-stats')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events
+          schema: 'public',
+          table: 'leaderboard',
+        },
+        (payload) => {
+          loadUserStats()
+        }
+      )
+      .subscribe()
+
+    // Store subscription reference for cleanup
+    subscriptionRef.current = {
+      unsubscribe: () => {
+        window.removeEventListener('refresh-global-counter', handleRefreshEvent)
+        leaderboardSubscription.unsubscribe()
+      },
+    }
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+    }
+  }, [loadUserStats, supabase])
+
+  return <Navbar userStats={stats || undefined} />
+}
+
+export function Navbar({ userStats }: { userStats?: UserStats | null }) {
   const pathname = usePathname()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -64,7 +185,7 @@ export function Navbar() {
       <div className='max-w-screen-xl mx-auto'>
         <div className='flex justify-between items-center px-4'>
           <div className='flex-shrink-0 py-3 pl-2 hidden md:block'>
-            <GlobalShuffleCount />
+            <GlobalShuffleCounter variant='navbar' userStats={userStats || undefined} />
           </div>
           <div
             ref={scrollContainerRef}
@@ -94,7 +215,7 @@ export function Navbar() {
           </div>
         </div>
         <div className='md:hidden flex justify-center py-1.5 border-t border-slate-800/50'>
-          <GlobalShuffleCount />
+          <GlobalShuffleCounter variant='navbar' userStats={userStats || undefined} />
         </div>
       </div>
     </nav>

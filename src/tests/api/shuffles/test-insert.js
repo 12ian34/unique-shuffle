@@ -46,11 +46,13 @@ async function testInsertShuffle(userId) {
     ]
 
     const { data, error } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .insert([
         {
           user_id: userId,
           cards: testCards,
+          is_saved: true,
+          created_at: new Date().toISOString(),
         },
       ])
       .select()

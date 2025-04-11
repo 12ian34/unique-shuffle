@@ -1,7 +1,7 @@
 'use client'
 
 import { Achievement as AchievementType } from '@/types'
-import { ACHIEVEMENTS } from '@/lib/achievements'
+import { ACHIEVEMENTS, AchievementCategory } from '@/lib/achievements'
 import { cn } from '@/lib/utils'
 
 interface AchievementsProps {
@@ -9,39 +9,87 @@ interface AchievementsProps {
   className?: string
 }
 
+// Map for user-friendly category names
+const categoryNames: Record<string, string> = {
+  [AchievementCategory.SHUFFLE_COUNT]: 'Shuffle Milestones',
+  [AchievementCategory.SHUFFLE_PATTERNS]: 'Shuffle Patterns',
+  [AchievementCategory.SPECIAL_SHUFFLES]: 'Special Shuffles',
+  [AchievementCategory.TIME_BASED]: 'Time-Based Achievements',
+  [AchievementCategory.STREAKS]: 'Shuffling Streaks',
+  [AchievementCategory.MILESTONES]: 'Game Milestones',
+}
+
 export function Achievements({ unlockedAchievements, className }: AchievementsProps) {
+  // Group achievements by category
+  const achievementsByCategory = ACHIEVEMENTS.reduce((acc, achievement) => {
+    const category = achievement.category || 'other'
+    if (!acc[category]) {
+      acc[category] = []
+    }
+    acc[category].push(achievement)
+    return acc
+  }, {} as Record<string, AchievementType[]>)
+
+  // Sort categories by their display order
+  const orderedCategories = Object.keys(achievementsByCategory).sort((a, b) => {
+    // Define the display order for categories
+    const order = [
+      AchievementCategory.MILESTONES,
+      AchievementCategory.SHUFFLE_COUNT,
+      AchievementCategory.STREAKS,
+      AchievementCategory.SHUFFLE_PATTERNS,
+      AchievementCategory.SPECIAL_SHUFFLES,
+      AchievementCategory.TIME_BASED,
+      'other',
+    ]
+    return order.indexOf(a) - order.indexOf(b)
+  })
+
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-6', className)}>
       <h3 className='text-lg font-semibold text-slate-100'>Achievements</h3>
-      <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-        {ACHIEVEMENTS.map((achievement) => (
-          <div
-            key={achievement.id}
-            className={cn(
-              'p-4 rounded-lg border',
-              unlockedAchievements.includes(achievement.id)
-                ? 'bg-green-900/30 border-green-700 text-green-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300'
-            )}
-          >
-            <div className='flex items-center gap-2'>
+
+      {orderedCategories.map((category) => (
+        <div key={category} className='mb-6'>
+          <h4 className='text-md font-medium text-slate-200 mb-3'>
+            {categoryNames[category] || 'Other Achievements'}
+          </h4>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            {achievementsByCategory[category].map((achievement) => (
               <div
+                key={achievement.id}
                 className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center',
+                  'p-4 rounded-lg border transition-all',
                   unlockedAchievements.includes(achievement.id)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-slate-700 text-slate-300'
+                    ? 'bg-green-900/30 border-green-700 text-green-200'
+                    : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
                 )}
               >
-                {unlockedAchievements.includes(achievement.id) ? '✓' : '?'}
+                <div className='flex items-center gap-2'>
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center',
+                      unlockedAchievements.includes(achievement.id)
+                        ? 'bg-green-500 text-white'
+                        : 'bg-slate-700 text-slate-300'
+                    )}
+                  >
+                    {unlockedAchievements.includes(achievement.id) ? '✓' : '?'}
+                  </div>
+                  <div>
+                    <h4 className='font-medium text-slate-100'>{achievement.name}</h4>
+                    <p className='text-sm text-slate-400'>{achievement.description}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h4 className='font-medium text-slate-100'>{achievement.name}</h4>
-                <p className='text-sm text-slate-400'>{achievement.description}</p>
-              </div>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
+      ))}
+
+      <div className='text-right text-sm text-slate-400'>
+        <span className='font-medium'>{unlockedAchievements.length}</span> of{' '}
+        <span className='font-medium'>{ACHIEVEMENTS.length}</span> achievements unlocked
       </div>
     </div>
   )

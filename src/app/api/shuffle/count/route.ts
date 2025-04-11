@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createSupabaseServer } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 
 export async function GET(request: Request) {
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
     }
 
     // If no userId, just return the total
-    return NextResponse.json({ count: totalCount })
+    return NextResponse.json({ total: totalCount })
   } catch (error) {
     console.error('Unexpected error counting shuffles:', error)
     return NextResponse.json(

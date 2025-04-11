@@ -101,7 +101,7 @@ export default function SharedShuffle({ params }: PageProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          shuffleId: shuffle.id,
+          shuffleId: typeof shuffle.id === 'string' ? parseInt(shuffle.id, 10) : shuffle.id,
           action: 'copy',
         }),
       })

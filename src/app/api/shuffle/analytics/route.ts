@@ -39,10 +39,11 @@ export async function POST(request: Request) {
 
     // Verify shuffle belongs to user if it's not a view action
     if (action !== 'view') {
+      const shuffleIdInt = parseInt(shuffleId, 10)
       const { data: shuffleData, error: fetchError } = await supabaseAdmin
-        .from('shuffles')
+        .from('global_shuffles')
         .select('id')
-        .eq('id', shuffleId)
+        .eq('id', shuffleIdInt)
         .eq('user_id', userId)
         .single()
 
@@ -54,12 +55,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Record the analytics event
+    // Record the analytics event with integer shuffle_id
     const { data: analyticsData, error: analyticsError } = await supabaseAdmin
       .from('shuffle_analytics')
       .insert([
         {
-          shuffle_id: shuffleId,
+          shuffle_id: parseInt(shuffleId, 10), // Ensure it's an integer
           user_id: userId,
           action,
           created_at: new Date().toISOString(),

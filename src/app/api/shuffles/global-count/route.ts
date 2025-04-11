@@ -6,7 +6,7 @@ export async function GET() {
 
   try {
     const { count, error } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .select('*', { count: 'exact', head: true })
 
     if (error) {

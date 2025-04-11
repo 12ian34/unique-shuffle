@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   try {
     // Get the shared shuffle
     const { data: shuffle, error } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .select('id, cards, created_at, user_id, is_shared')
       .eq('share_code', shareCode)
       .eq('is_shared', true)
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       .from('shuffle_analytics')
       .insert([
         {
-          shuffle_id: shuffle.id,
+          shuffle_id: parseInt(shuffle.id, 10),
           action: 'view',
           created_at: new Date().toISOString(),
         },

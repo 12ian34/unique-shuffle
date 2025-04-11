@@ -54,10 +54,20 @@ export default function Dashboard() {
         return
       }
 
-      // Get all user's shuffles
-      const { data: shuffles } = await supabase.from('shuffles').select('id').eq('user_id', user.id)
+      // Get all user's shuffles (both saved and unsaved)
+      const { data: allShuffles } = await supabase
+        .from('global_shuffles')
+        .select('id')
+        .eq('user_id', user.id)
 
-      if (!shuffles || shuffles.length === 0) {
+      // Get user's saved shuffles (for analytics display)
+      const { data: savedShuffles } = await supabase
+        .from('global_shuffles')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_saved', true)
+
+      if (!allShuffles || allShuffles.length === 0) {
         setAnalytics({
           totalShuffles: 0,
           viewedShuffles: 0,
@@ -70,20 +80,24 @@ export default function Dashboard() {
         return
       }
 
-      const shuffleIds = shuffles.map((s) => s.id)
+      const shuffleIds = savedShuffles ? savedShuffles.map((s) => s.id) : []
 
       // Get total shared shuffles
       const { data: sharedShuffles, error: sharedError } = await supabase
-        .from('shuffles')
+        .from('global_shuffles')
         .select('id')
         .eq('user_id', user.id)
+        .eq('is_saved', true)
         .eq('is_shared', true)
 
       // Get analytics data
       const { data: analyticsData, error: analyticsError } = await supabase
         .from('shuffle_analytics')
         .select('*')
-        .in('shuffle_id', shuffleIds)
+        .in(
+          'shuffle_id',
+          shuffleIds.map((id) => parseInt(id, 10))
+        )
 
       if (analyticsError) {
         console.error('Error fetching analytics:', analyticsError)
@@ -156,7 +170,7 @@ export default function Dashboard() {
       })
 
       setAnalytics({
-        totalShuffles: shuffles.length,
+        totalShuffles: allShuffles.length,
         viewedShuffles: viewedShuffleIds.length,
         sharedShuffles: sharedShuffles?.length || 0,
         copiedShuffles: Array.from(new Set(copyEvents.map((e) => e.shuffle_id))).length,

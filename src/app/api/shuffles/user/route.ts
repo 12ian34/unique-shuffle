@@ -8,19 +8,17 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get('page') || '0', 10)
 
   if (!userId) {
-    return NextResponse.json(
-      { error: 'userId is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'userId is required' }, { status: 400 })
   }
 
   const supabaseAdmin = createSupabaseAdmin()
 
   try {
     const { data, error, count } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
+      .eq('is_saved', true)
       .order('created_at', { ascending: false })
       .range(page * limit, (page + 1) * limit - 1)
 
@@ -32,9 +30,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ shuffles: data, total: count })
   } catch (error) {
     console.error('Unexpected error fetching shuffles:', error)
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
-} 
+}

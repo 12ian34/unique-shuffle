@@ -20,11 +20,12 @@ async function checkAndFixConstraints(userId) {
       }
     }
 
-    // 2. Check for existing rows in shuffles table
+    // 2. Check for existing rows in shuffles table (using global_shuffles now)
     const { data: shufflesData, error: shufflesError } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .select('count')
       .eq('user_id', userId)
+      // Count all shuffles, not just saved ones
       .single()
 
     // 3. Check for existing rows in leaderboard table

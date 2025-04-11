@@ -15,6 +15,11 @@ interface LeaderboardEntry {
 export function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [sortColumn, setSortColumn] = useState<
+    'total_shuffles' | 'shuffle_streak' | 'achievements_count'
+  >('total_shuffles')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,14 +27,17 @@ export function Leaderboard() {
 
   const loadLeaderboard = async () => {
     try {
-      const { data, error } = await supabase
-        .from('leaderboard')
-        .select('*')
-        .order('total_shuffles', { ascending: false })
-        .limit(10)
+      setIsLoading(true)
+      const response = await fetch(
+        `/api/leaderboard?sortBy=${sortColumn}&sortOrder=${sortDirection}`
+      )
 
-      if (error) throw error
-      setEntries(data || [])
+      if (!response.ok) {
+        throw new Error('Failed to fetch leaderboard data')
+      }
+
+      const data = await response.json()
+      setEntries(data.entries || [])
     } catch (error) {
       console.error('Failed to load leaderboard:', error)
     } finally {
@@ -39,6 +47,13 @@ export function Leaderboard() {
 
   useEffect(() => {
     loadLeaderboard()
+
+    // Add listener for custom refresh event
+    const handleRefreshEvent = () => {
+      console.log('Leaderboard received refresh-global-counter event')
+      loadLeaderboard()
+    }
+    window.addEventListener('refresh-global-counter', handleRefreshEvent)
 
     // Subscribe to real-time changes
     const subscription = supabase
@@ -51,62 +66,90 @@ export function Leaderboard() {
 
     // Cleanup subscription
     return () => {
+      window.removeEventListener('refresh-global-counter', handleRefreshEvent)
       subscription.unsubscribe()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [sortColumn, sortDirection])
+
+  const handleSort = (column: 'total_shuffles' | 'shuffle_streak' | 'achievements_count') => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Default to descending for new column
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+  }
+
+  const renderSortIcon = (column: 'total_shuffles' | 'shuffle_streak' | 'achievements_count') => {
+    if (sortColumn === column) {
+      return sortDirection === 'asc' ? ' ▲' : ' ▼'
+    }
+    return ''
+  }
 
   if (isLoading) {
-    return <div className='text-slate-200 font-medium'>Loading leaderboard...</div>
+    return <div className='text-slate-200 font-medium text-center py-4'>Loading leaderboard...</div>
   }
 
   return (
-    <div className='space-y-4'>
-      <h3 className='text-lg font-semibold text-slate-100'>Global Leaderboard</h3>
-      <div className='bg-slate-900 rounded-lg shadow-md overflow-hidden border border-slate-700'>
-        <table className='min-w-full divide-y divide-slate-800'>
-          <thead className='bg-slate-800'>
-            <tr>
-              <th className='px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider'>
-                Rank
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider'>
-                Player
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider'>
-                Shuffles
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider'>
-                Streak Days
-              </th>
-              <th className='px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider'>
-                Achievements
-              </th>
-            </tr>
-          </thead>
-          <tbody className='divide-y divide-slate-800'>
+    <>
+      <div className='max-w-full px-4 sm:px-0'>
+        <div className='overflow-x-auto rounded-lg'>
+          <div className='bg-slate-900/80 backdrop-blur-sm rounded-lg overflow-hidden border border-slate-700/50 min-w-full'>
+            <div className='grid grid-cols-12 text-xs font-semibold text-slate-300 uppercase tracking-wider bg-slate-800/80 px-3 py-3'>
+              <div className='col-span-1 text-center'>#</div>
+              <div className='col-span-4 pl-1'>Player</div>
+              <div
+                className='col-span-3 text-center cursor-pointer'
+                onClick={() => handleSort('total_shuffles')}
+              >
+                Shuffles{renderSortIcon('total_shuffles')}
+              </div>
+              <div
+                className='col-span-2 text-center cursor-pointer'
+                onClick={() => handleSort('shuffle_streak')}
+              >
+                Streak{renderSortIcon('shuffle_streak')}
+              </div>
+              <div
+                className='col-span-2 text-center cursor-pointer'
+                onClick={() => handleSort('achievements_count')}
+              >
+                Achievements{renderSortIcon('achievements_count')}
+              </div>
+            </div>
+
             {entries.map((entry, index) => (
-              <tr key={index} className={cn(index % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/50')}>
-                <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-200'>
+              <div
+                key={index}
+                className={cn(
+                  'grid grid-cols-12 items-center px-3 py-3 text-sm border-t border-slate-800/80',
+                  index % 2 === 0 ? 'bg-slate-900/50' : 'bg-slate-800/30'
+                )}
+              >
+                <div className='col-span-1 font-semibold text-slate-300 text-center'>
                   {index + 1}
-                </td>
-                <td className='px-6 py-4 whitespace-nowrap text-sm text-slate-300'>
-                  {entry.username}
-                </td>
-                <td className='px-6 py-4 whitespace-nowrap text-sm text-slate-300'>
-                  {entry.total_shuffles}
-                </td>
-                <td className='px-6 py-4 whitespace-nowrap text-sm text-slate-300'>
-                  {entry.shuffle_streak}
-                </td>
-                <td className='px-6 py-4 whitespace-nowrap text-sm text-slate-300'>
+                </div>
+                <div className='col-span-4 text-slate-300 truncate pl-1'>{entry.username}</div>
+                <div className='col-span-3 text-slate-300 text-center'>{entry.total_shuffles}</div>
+                <div className='col-span-2 text-slate-300 text-center'>{entry.shuffle_streak}</div>
+                <div className='col-span-2 text-slate-300 text-center'>
                   {entry.achievements_count}
-                </td>
-              </tr>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+
+            {entries.length === 0 && (
+              <div className='px-4 py-6 text-center text-slate-400'>
+                No entries yet. Be the first to join the leaderboard!
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

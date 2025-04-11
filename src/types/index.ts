@@ -18,6 +18,7 @@ export interface Achievement {
   name: string
   description: string
   condition: (stats: UserStats) => boolean
+  category?: string
 }
 
 export interface Shuffle {

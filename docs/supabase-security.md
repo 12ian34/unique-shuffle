@@ -7,6 +7,7 @@ This document outlines best practices for using Supabase clients in your applica
 We use different Supabase clients depending on the context:
 
 1. **Client-side authenticated client**
+
    - Used in React components with `createSupabaseClient()`
    - Uses `createBrowserClient` from `@supabase/ssr`
    - Respects Row Level Security (RLS) policies
@@ -14,6 +15,7 @@ We use different Supabase clients depending on the context:
    - Example: `src/lib/supabase-client.ts`
 
 2. **Server-side authenticated client**
+
    - Used in API routes with `createSupabaseServer()`
    - Uses `createServerClient` from `@supabase/ssr`
    - Maintains the user's session from cookies
@@ -32,11 +34,13 @@ We use different Supabase clients depending on the context:
 ### When to use each client type
 
 - **Client-side authenticated client**:
+
   - For all user-facing components
   - When you need to fetch data that belongs to the current user
   - When making real-time subscriptions
 
 - **Server-side authenticated client**:
+
   - For API routes that need to access the user's session
   - When you need to ensure the action is performed by the authenticated user
   - When RLS policies should be enforced
@@ -49,16 +53,19 @@ We use different Supabase clients depending on the context:
 ### Best Practices
 
 1. **Minimize admin client usage**:
+
    - Only use the admin client when absolutely necessary
    - Prefer server-side authenticated clients when possible
    - Use RLS policies to secure your data
 
 2. **Secure your service role key**:
+
    - Never expose the service role key to the client
    - Only use it in server-side contexts (API routes)
    - Store it in environment variables
 
 3. **Implement proper RLS policies**:
+
    - Create secure RLS policies for each table
    - Test policies to make sure they restrict access properly
    - Use row-level security as your primary security mechanism
@@ -81,8 +88,12 @@ const supabaseAdmin = createSupabaseAdmin()
 
 // Use regular client for user's own data
 const { data, error } = await supabase
-  .from('shuffles')
-  .insert([{ user_id: userId, cards }])
+  .from('global_shuffles')
+  .insert([{
+    user_id: userId,
+    cards,
+    is_saved: true
+  }])
   .select()
 
 // Use admin client for leaderboard operations
@@ -99,4 +110,4 @@ As of the latest update, this project uses the modern `@supabase/ssr` package in
 - `createServerClient` for server-side usage with cookies
 - Improved TypeScript support
 
-By following these guidelines, we can maintain a secure application while still utilizing the power of Supabase's admin capabilities when needed. 
+By following these guidelines, we can maintain a secure application while still utilizing the power of Supabase's admin capabilities when needed.

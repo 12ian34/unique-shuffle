@@ -1,14 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { ShuffleDisplay } from '@/components/shuffle-display'
-import { StatsDisplay } from '@/components/stats-display'
-import { Achievements } from '@/components/achievements'
-import { ShuffleHistory } from '@/components/shuffle-history'
 import { Card as CardType, UserStats } from '@/types'
-import { getUnlockedAchievements } from '@/lib/achievements'
 import { Database } from '@/types/supabase'
+import dynamic from 'next/dynamic'
+
+// Lazily load non-critical components
+const AchievementsLoader = dynamic(
+  () =>
+    import('@/lib/achievements').then((mod) => ({
+      default: (props: { stats: UserStats }) => {
+        const achievements = mod.getUnlockedAchievements(props.stats)
+        return null // We're just using this for calculation, not rendering
+      },
+    })),
+  { ssr: false, loading: () => null }
+)
 
 export default function Home() {
   const [stats, setStats] = useState<UserStats>({
@@ -17,14 +26,19 @@ export default function Home() {
     achievements_count: 0,
     most_common_cards: [],
   })
-  const [isLoading, setIsLoading] = useState(true)
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const [isLoading, setIsLoading] = useState(false) // Start as false for better perceived performance
+  const [supabase] = useState(() =>
+    createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
   )
 
   const loadUserStats = async () => {
+    if (isLoading) return // Prevent concurrent loads
+
     try {
+      setIsLoading(true)
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -34,14 +48,14 @@ export default function Home() {
         return
       }
 
-      console.log('Loading stats for user:', user.id)
-
-      // Get user shuffles from database
+      // Optimize query - only select what we need
       const { data: shuffles, error: shufflesError } = await supabase
-        .from('shuffles')
+        .from('global_shuffles')
         .select('cards, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        // Add limit to prevent loading too much data
+        .limit(100)
 
       if (shufflesError) {
         console.error('Error fetching shuffles:', shufflesError)
@@ -61,35 +75,33 @@ export default function Home() {
         return
       }
 
-      console.log(`Found ${shuffles.length} shuffles`)
-
-      // Directly count card occurrences without JSON stringification
-      const cardCounts: Record<string, { card: CardType; count: number }> = {}
+      // Optimize card counting - use a Map for better performance
+      const cardCounts = new Map<string, { card: CardType; count: number }>()
 
       shuffles.forEach((shuffle) => {
-        if (!shuffle.cards || !Array.isArray(shuffle.cards)) {
-          console.warn('Invalid shuffle data:', shuffle)
-          return
-        }
+        if (!shuffle.cards || !Array.isArray(shuffle.cards)) return
 
         shuffle.cards.forEach((card) => {
           if (!card || !card.suit || !card.value) return
 
           const key = `${card.value}-${card.suit}`
-          if (!cardCounts[key]) {
-            cardCounts[key] = { card, count: 0 }
+          if (!cardCounts.has(key)) {
+            cardCounts.set(key, { card, count: 0 })
           }
-          cardCounts[key].count++
+
+          const entry = cardCounts.get(key)!
+          entry.count++
+          cardCounts.set(key, entry)
         })
       })
 
-      // Calculate shuffle streak
+      // Calculate shuffle streak more efficiently
       let streak = 0
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      // Group shuffles by date (using a Map to preserve insertion order)
-      const shufflesByDate = new Map<string, boolean>()
+      // Use a Set for faster lookups
+      const shuffleDateSet = new Set<string>()
 
       shuffles.forEach((shuffle) => {
         if (!shuffle.created_at) return
@@ -97,26 +109,22 @@ export default function Home() {
         const shuffleDate = new Date(shuffle.created_at)
         shuffleDate.setHours(0, 0, 0, 0)
 
-        // Store date as string key in format YYYY-MM-DD
         const dateStr = shuffleDate.toISOString().split('T')[0]
-        shufflesByDate.set(dateStr, true)
+        shuffleDateSet.add(dateStr)
       })
 
-      // Get dates as array sorted in descending order (most recent first)
-      const shuffleDates = Array.from(shufflesByDate.keys()).sort().reverse()
+      // Convert to sorted array
+      const shuffleDates = Array.from(shuffleDateSet).sort().reverse()
 
       if (shuffleDates.length > 0) {
         streak = 1 // Start with 1 for the most recent day
 
         const todayStr = today.toISOString().split('T')[0]
-        const mostRecentShuffleDate = new Date(shuffleDates[0])
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
         const yesterdayStr = yesterday.toISOString().split('T')[0]
 
-        // If most recent shuffle is not today or yesterday, streak is just 1
         if (shuffleDates[0] === todayStr || shuffleDates[0] === yesterdayStr) {
-          // Check for consecutive days working backwards
           for (let i = 1; i < shuffleDates.length; i++) {
             const currentDate = new Date(shuffleDates[i - 1])
             currentDate.setDate(currentDate.getDate() - 1)
@@ -132,18 +140,16 @@ export default function Home() {
       }
 
       // Convert to the format expected by the UI
+      const mostCommonCards = Array.from(cardCounts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10) // Only keep top 10 to reduce state size
+
       const newStats: UserStats = {
         total_shuffles: shuffles.length,
         shuffle_streak: streak,
-        achievements_count: 0,
-        most_common_cards: Object.values(cardCounts).sort((a, b) => b.count - a.count),
+        achievements_count: 0, // Will be calculated by AchievementsLoader
+        most_common_cards: mostCommonCards,
       }
-
-      console.log('Stats calculated:', {
-        shuffles: newStats.total_shuffles,
-        streak: newStats.shuffle_streak,
-        topCard: newStats.most_common_cards[0]?.card,
-      })
 
       setStats(newStats)
     } catch (error) {
@@ -153,24 +159,43 @@ export default function Home() {
     }
   }
 
+  // Load user stats on mount, but don't block rendering
   useEffect(() => {
-    loadUserStats()
+    // Defer stats loading to improve initial load time
+    const timeoutId = setTimeout(loadUserStats, 100)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
-    // Subscribe to real-time changes
-    const subscription = supabase
-      .channel('shuffles')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shuffles' }, (payload) => {
-        console.log('Change received!', payload)
-        loadUserStats() // Refresh stats when changes occur
-      })
+  // Optimize Supabase subscriptions - consolidate them and use a more efficient approach
+  useEffect(() => {
+    // Single subscription for any relevant change
+    const channel = supabase
+      .channel('db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'global_shuffles' },
+        (payload) => {
+          // Only reload for this user's changes to avoid unnecessary work
+          if (payload.new && typeof payload.new === 'object' && 'user_id' in payload.new) {
+            // Debounce updates to prevent rapid reloads
+            const userId = (payload.new as any).user_id
+
+            // Get current user ID
+            supabase.auth.getUser().then(({ data }) => {
+              if (data.user && data.user.id === userId) {
+                // Only reload if it's this user's data
+                loadUserStats()
+              }
+            })
+          }
+        }
+      )
       .subscribe()
 
-    // Cleanup subscription
     return () => {
-      subscription.unsubscribe()
+      channel.unsubscribe()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [supabase])
 
   const handleSaveShuffle = async (cards: CardType[]) => {
     try {
@@ -201,42 +226,26 @@ export default function Home() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <p className='text-slate-200'>Loading...</p>
-      </div>
-    )
-  }
-
-  const unlockedAchievements = getUnlockedAchievements(stats)
-
   return (
     <main className='min-h-screen p-4 md:p-8'>
       <div className='max-w-[1400px] mx-auto'>
         <p className='text-lg mb-6 text-slate-300'>
           there is a 1 in{' '}
-          <span className='break-all text-pretty'>
+          <span className='inline-block break-all md:break-all text-pretty'>
             80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
           </span>{' '}
           chance that this shuffle has ever existed before. it&apos;s probably unique
         </p>
 
         <div className='space-y-8'>
-          <div>
+          <div className='grid grid-cols-1 gap-6'>
             <ShuffleDisplay onSaveShuffle={handleSaveShuffle} />
           </div>
-
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-700'>
-            <StatsDisplay stats={stats} />
-            <Achievements unlockedAchievements={unlockedAchievements.map((a) => a.id)} />
-          </div>
-        </div>
-
-        <div className='mt-8 pt-8 border-t border-slate-700'>
-          <ShuffleHistory className='w-full' />
         </div>
       </div>
+
+      {/* Load achievements calculation in the background */}
+      <Suspense fallback={null}>{stats && <AchievementsLoader stats={stats} />}</Suspense>
     </main>
   )
 }

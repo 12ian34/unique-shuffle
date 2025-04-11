@@ -34,10 +34,11 @@ export async function POST(request: Request) {
 
     // Verify shuffle belongs to user
     const { data: shuffleData, error: fetchError } = await supabaseAdmin
-      .from('shuffles')
+      .from('global_shuffles')
       .select('*')
       .eq('id', shuffleId)
       .eq('user_id', user.id)
+      .eq('is_saved', true)
       .single()
 
     if (fetchError || !shuffleData) {
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       const shareCode = nanoid(10) // Generate a short unique ID
 
       const { data: updatedShuffle, error: updateError } = await supabaseAdmin
-        .from('shuffles')
+        .from('global_shuffles')
         .update({ share_code: shareCode, is_shared: true })
         .eq('id', shuffleId)
         .select()

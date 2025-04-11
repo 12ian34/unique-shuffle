@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 import { Database } from '@/types/supabase'
+import { generateUsername } from '@/utils/username-generator'
+import { nanoid } from 'nanoid'
+import { getUnlockedAchievements } from '@/lib/achievements'
 
 type Card = {
   suit: string
@@ -40,13 +43,24 @@ export async function POST(request: Request) {
     const userId = user.id
     console.log('Saving shuffle for user:', userId)
 
-    // 3. Try to directly save the shuffle first
+    // Generate a unique share code for this shuffle
+    const shareCode = nanoid(10)
+
+    // Save the shuffle directly to global_shuffles
     const { data: shuffleData, error: shuffleError } = await supabaseAdmin
-      .from('shuffles')
-      .insert([{ user_id: userId, cards }])
+      .from('global_shuffles')
+      .insert([
+        {
+          user_id: userId,
+          cards,
+          is_saved: true,
+          share_code: shareCode,
+          created_at: new Date().toISOString(),
+        },
+      ])
       .select()
 
-    // 4. If there's a foreign key error, we need to create the user first
+    // If there's a foreign key error, we need to create the user first
     if (shuffleError && shuffleError.code === '23503') {
       console.log('Foreign key error, creating user record first')
 
@@ -69,8 +83,16 @@ export async function POST(request: Request) {
 
       // Try to save the shuffle again
       const { data: retryData, error: retryError } = await supabaseAdmin
-        .from('shuffles')
-        .insert([{ user_id: userId, cards }])
+        .from('global_shuffles')
+        .insert([
+          {
+            user_id: userId,
+            cards,
+            is_saved: true,
+            share_code: shareCode,
+            created_at: new Date().toISOString(),
+          },
+        ])
         .select()
 
       if (retryError) {
@@ -94,6 +116,60 @@ export async function POST(request: Request) {
     }
 
     // 5. Success case
+
+    // Update leaderboard with the new shuffle count
+    const { data: leaderboardData, error: leaderboardFetchError } = await supabaseAdmin
+      .from('leaderboard')
+      .select('total_shuffles, shuffle_streak')
+      .eq('user_id', userId)
+      .single()
+
+    let updatedTotalShuffles = 1
+    let currentStreak = 0
+
+    if (!leaderboardFetchError) {
+      // Leaderboard entry exists, update it
+      updatedTotalShuffles = (leaderboardData?.total_shuffles || 0) + 1
+      currentStreak = leaderboardData?.shuffle_streak || 0
+
+      // Update leaderboard and achievements in one operation
+      const unlockedAchievements = getUnlockedAchievements({
+        total_shuffles: updatedTotalShuffles,
+        shuffle_streak: currentStreak,
+        achievements_count: 0,
+        most_common_cards: [],
+      })
+
+      await supabaseAdmin
+        .from('leaderboard')
+        .update({
+          total_shuffles: updatedTotalShuffles,
+          updated_at: new Date().toISOString(),
+          achievements_count: unlockedAchievements.length,
+        })
+        .eq('user_id', userId)
+    } else {
+      // Leaderboard entry doesn't exist, create one
+      // Generate achievements for a new user
+      const unlockedAchievements = getUnlockedAchievements({
+        total_shuffles: 1,
+        shuffle_streak: 0,
+        achievements_count: 0,
+        most_common_cards: [],
+      })
+
+      await supabaseAdmin.from('leaderboard').insert([
+        {
+          user_id: userId,
+          username: user.email?.split('@')[0] || generateUsername(userId),
+          total_shuffles: 1,
+          shuffle_streak: 0,
+          achievements_count: unlockedAchievements.length,
+          updated_at: new Date().toISOString(),
+        },
+      ])
+    }
+
     return NextResponse.json({ success: true, data: shuffleData })
   } catch (error) {
     console.error('Unexpected error saving shuffle:', error)

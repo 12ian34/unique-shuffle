@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useMemo } from 'react'
 import { Card as CardType } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -9,56 +10,73 @@ interface CardProps {
   index?: number
 }
 
-export function Card({ card, className, index = 0 }: CardProps) {
-  const getSuitColor = (suit: CardType['suit']) => {
-    if (suit === 'hearts' || suit === 'diamonds') {
-      return 'text-red-500'
+// Helper functions moved outside component to avoid recreation on each render
+const getSuitColor = (suit: CardType['suit']) => {
+  if (suit === 'hearts' || suit === 'diamonds') {
+    return 'text-red-500'
+  }
+  return 'text-slate-900'
+}
+
+const getCardFont = (value: string) => {
+  // Use different font styles for letter cards (A, J, Q, K) vs number cards
+  return ['A', 'J', 'Q', 'K'].includes(value)
+    ? 'font-serif italic font-bold tracking-tighter'
+    : 'font-serif font-black tracking-tight'
+}
+
+const getSuitSymbol = (suit: CardType['suit']) => {
+  switch (suit) {
+    case 'hearts':
+      return '♥'
+    case 'diamonds':
+      return '♦'
+    case 'clubs':
+      return '♣'
+    case 'spades':
+      return '♠'
+  }
+}
+
+// Base card class - doesn't change between renders, so extract it
+const baseCardClasses =
+  'rounded-lg flex flex-col justify-between overflow-hidden backdrop-blur-sm relative z-10 transition-all duration-300 ease-out transform-gpu cursor-pointer'
+
+// Card component with optimizations
+function CardComponent({ card, className, index = 0 }: CardProps) {
+  // Memoize values that depend on props to prevent recalculation on every render
+  const cardDetails = useMemo(() => {
+    const suitSymbol = getSuitSymbol(card.suit)
+    const suitColor = getSuitColor(card.suit)
+    const cardFont = getCardFont(card.value)
+    const isRedSuit = card.suit === 'hearts' || card.suit === 'diamonds'
+
+    return {
+      suitSymbol,
+      suitColor,
+      cardFont,
+      isRedSuit,
     }
-    return 'text-slate-900'
-  }
+  }, [card.suit, card.value])
 
-  const getCardFont = (value: string) => {
-    // Use different font styles for letter cards (A, J, Q, K) vs number cards
-    return ['A', 'J', 'Q', 'K'].includes(value)
-      ? 'font-serif italic font-bold tracking-tighter'
-      : 'font-serif font-black tracking-tight'
-  }
+  // Memoize card dimensions classes to avoid string concatenation on each render
+  const cardDimensionsClass = useMemo(() => {
+    return 'w-[70px] sm:w-[80px] md:w-[85px] h-[110px] sm:h-[125px] md:h-[135px]'
+  }, [])
 
-  const getSuitSymbol = (suit: CardType['suit']) => {
-    switch (suit) {
-      case 'hearts':
-        return '♥'
-      case 'diamonds':
-        return '♦'
-      case 'clubs':
-        return '♣'
-      case 'spades':
-        return '♠'
-    }
-  }
-
-  const suitSymbol = getSuitSymbol(card.suit)
-  const suitColor = getSuitColor(card.suit)
-  const cardFont = getCardFont(card.value)
-  const isRedSuit = card.suit === 'hearts' || card.suit === 'diamonds'
+  // Memoize hover effect classes
+  const hoverEffectClass = useMemo(() => {
+    return 'group-hover:translate-y-[-8px] group-hover:rotate-1 active:translate-y-[-4px] active:rotate-0 active:scale-[0.98]'
+  }, [])
 
   return (
     <div className='relative group'>
-      {/* Modern drop shadow for 3D effect */}
-      <div className='absolute -inset-1 rounded-lg bg-gradient-to-r from-indigo-500/30 to-purple-600/30 opacity-0 group-hover:opacity-100 blur transition duration-500 group-hover:duration-200' />
+      {/* Modern drop shadow for 3D effect - simplified for better performance */}
+      <div className='absolute -inset-1 rounded-lg bg-gradient-to-r from-indigo-500/30 to-purple-600/30 opacity-0 group-hover:opacity-100 blur transition duration-300 group-hover:duration-200' />
 
-      {/* Card number sticker - positioned on top as a separate layer */}
+      {/* Card number sticker - optimized with fewer absolute positions */}
       <div className='absolute -top-1 -right-1 w-8 h-8 flex items-center justify-center z-30 rotate-2 transform-gpu group-hover:rotate-3 transition-transform duration-300'>
-        {/* Sticker shadow */}
-        <div
-          className='absolute inset-0 rounded-full opacity-30'
-          style={{
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)',
-            transform: 'translateY(0.5px)',
-          }}
-        ></div>
-
-        {/* Sticker background with slight tilt */}
+        {/* Combined sticker effects for fewer DOM elements */}
         <div
           className='absolute inset-0 rounded-full'
           style={{
@@ -67,17 +85,7 @@ export function Card({ card, className, index = 0 }: CardProps) {
             boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
             border: '1px solid rgba(99, 102, 241, 0.6)',
           }}
-        ></div>
-
-        {/* Sticker shine effect - more subtle */}
-        <div
-          className='absolute inset-0 rounded-full overflow-hidden opacity-50'
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 30%, transparent 60%)',
-            clipPath: 'polygon(0 0, 100% 0, 100% 45%, 0% 25%)',
-          }}
-        ></div>
+        />
 
         {/* Sticker text */}
         <span
@@ -93,16 +101,11 @@ export function Card({ card, className, index = 0 }: CardProps) {
       <div
         className={cn(
           // Card dimensions
-          'w-[70px] sm:w-[80px] md:w-[85px]',
-          'h-[110px] sm:h-[125px] md:h-[135px]',
-          // Modern glass-like appearance
-          'rounded-lg flex flex-col justify-between overflow-hidden backdrop-blur-sm',
-          // Ensure it's above the shadow
-          'relative z-10',
-          // Improved transition for hover with rotate effect
-          'transition-all duration-300 ease-out',
-          'transform-gpu group-hover:translate-y-[-8px] group-hover:rotate-1',
-          'cursor-pointer',
+          cardDimensionsClass,
+          // Modern glass-like appearance with base classes
+          baseCardClasses,
+          // Animation classes
+          hoverEffectClass,
           className
         )}
         style={{
@@ -116,39 +119,29 @@ export function Card({ card, className, index = 0 }: CardProps) {
           borderBottom: '1px solid rgba(150, 170, 200, 0.6)',
         }}
       >
-        {/* Card surface texture - avoid center area */}
+        {/* Simplified card surface texture with fewer elements */}
         <div
-          className='absolute inset-x-0 top-0 h-1/4 z-0 pointer-events-none opacity-80'
+          className='absolute inset-0 z-0 pointer-events-none opacity-70'
           style={{
-            background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 0%, transparent 100%)',
-          }}
-        />
-        <div
-          className='absolute inset-x-0 bottom-0 h-1/4 z-0 pointer-events-none opacity-70'
-          style={{
-            background: 'linear-gradient(to top, rgba(180, 195, 220, 0.4) 0%, transparent 100%)',
-          }}
-        />
-        <div
-          className='absolute inset-y-0 left-0 w-1/4 z-0 pointer-events-none opacity-70'
-          style={{
-            background: 'linear-gradient(to right, rgba(255, 255, 255, 0.3) 0%, transparent 100%)',
-          }}
-        />
-        <div
-          className='absolute inset-y-0 right-0 w-1/4 z-0 pointer-events-none opacity-70'
-          style={{
-            background: 'linear-gradient(to left, rgba(180, 195, 220, 0.3) 0%, transparent 100%)',
+            background:
+              'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.5) 0%, transparent 70%)',
           }}
         />
 
         {/* Top-left corner - horizontal layout like real cards */}
-        <div className={cn('p-1 z-10 relative', suitColor)}>
+        <div className={cn('p-1 z-10 relative', cardDetails.suitColor)}>
           <div className='flex items-center gap-px'>
-            <span className={cn('text-[1rem] sm:text-[1.2rem] leading-none font-bold', cardFont)}>
+            <span
+              className={cn(
+                'text-[1rem] sm:text-[1.2rem] leading-none font-bold',
+                cardDetails.cardFont
+              )}
+            >
               {card.value}
             </span>
-            <span className='text-[1rem] sm:text-[1.2rem] leading-none'>{suitSymbol}</span>
+            <span className='text-[1rem] sm:text-[1.2rem] leading-none'>
+              {cardDetails.suitSymbol}
+            </span>
           </div>
         </div>
 
@@ -156,23 +149,35 @@ export function Card({ card, className, index = 0 }: CardProps) {
         <div
           className={cn(
             'text-[2rem] sm:text-[2.4rem] self-center z-10 relative',
-            suitColor,
-            isRedSuit ? 'drop-shadow-md' : 'drop-shadow-[0_1px_1px_rgba(255,255,255,0.7)]'
+            cardDetails.suitColor,
+            cardDetails.isRedSuit
+              ? 'drop-shadow-md'
+              : 'drop-shadow-[0_1px_1px_rgba(255,255,255,0.7)]'
           )}
         >
-          {suitSymbol}
+          {cardDetails.suitSymbol}
         </div>
 
         {/* Bottom-right corner - properly positioned and sized */}
-        <div className={cn('p-1 self-end z-10 relative', suitColor)}>
+        <div className={cn('p-1 self-end z-10 relative', cardDetails.suitColor)}>
           <div className='flex items-center gap-px rotate-180'>
-            <span className={cn('text-[1rem] sm:text-[1.2rem] leading-none font-bold', cardFont)}>
+            <span
+              className={cn(
+                'text-[1rem] sm:text-[1.2rem] leading-none font-bold',
+                cardDetails.cardFont
+              )}
+            >
               {card.value}
             </span>
-            <span className='text-[1rem] sm:text-[1.2rem] leading-none'>{suitSymbol}</span>
+            <span className='text-[1rem] sm:text-[1.2rem] leading-none'>
+              {cardDetails.suitSymbol}
+            </span>
           </div>
         </div>
       </div>
     </div>
   )
 }
+
+// Export memoized component to prevent unnecessary re-renders when props haven't changed
+export const Card = memo(CardComponent)
