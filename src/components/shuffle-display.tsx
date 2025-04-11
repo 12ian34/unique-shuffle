@@ -25,6 +25,7 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
   const [isLoading, setIsLoading] = useState(true)
   const lastShuffleTimeRef = useRef<number>(0)
   const initialLoadRef = useRef<boolean>(true)
+  const [animateButton, setAnimateButton] = useState(false)
 
   // Initialize Supabase client - use useMemo to create only once
   const supabase = useMemo(
@@ -106,10 +107,18 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
     setIsShuffling(true)
     setSelectedCardIndex(null)
 
+    // Trigger the animation with state
+    setAnimateButton(true)
+
     // Create a new deck and immediately apply it for faster perceived performance
     const deck = createDeck()
     const shuffled = shuffleDeck(deck)
     setCurrentShuffle(shuffled)
+
+    // Remove the DOM manipulation approach
+    setTimeout(() => {
+      setAnimateButton(false)
+    }, 250)
 
     // Track the shuffle in the global counter asynchronously - don't wait for it
     try {
@@ -129,7 +138,10 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
     } catch (trackError) {
       // Continue even if tracking fails
     } finally {
-      setIsShuffling(false)
+      // Set isShuffling to false much quicker for a fast animation
+      setTimeout(() => {
+        setIsShuffling(false)
+      }, 250)
     }
   }
 
@@ -176,18 +188,20 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
 
   return (
     <div className={className}>
-      <div className='flex gap-4 mb-6'>
+      <div className='flex justify-center gap-4 mb-6'>
         <Button
           onClick={handleShuffle}
           disabled={isSaving || isShuffling}
-          className='bg-indigo-700 hover:bg-indigo-800 text-white font-medium'
+          className={`bg-indigo-700 hover:bg-indigo-800 text-white font-medium transition-all duration-200 min-w-[120px]
+            ${isShuffling ? 'scale-[0.98]' : ''} 
+            ${animateButton ? 'animate-quick-shake' : ''}`}
         >
           {isShuffling ? 'shuffling...' : 'shuffle'}
         </Button>
         <Button
           onClick={handleSave}
           disabled={isSaving || isShuffling}
-          className='bg-emerald-700 hover:bg-emerald-800 text-white font-medium'
+          className='bg-emerald-700 hover:bg-emerald-800 text-white font-medium min-w-[120px]'
         >
           {isSaving ? 'saving...' : 'save shuffle'}
         </Button>
@@ -200,7 +214,7 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
           </div>
         </div>
 
-        <div className='grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-13 gap-3 sm:gap-4 md:gap-5 place-items-center'>
+        <div className='grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-8 gap-2 place-items-center'>
           {cardChunks.map((chunk, chunkIndex) =>
             chunk.map((card, index) => {
               const actualIndex = chunkIndex * Math.ceil(currentShuffle.length / 4) + index
@@ -209,8 +223,8 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
                   key={`${card.suit}-${card.value}-${actualIndex}`}
                   onClick={() => handleCardClick(actualIndex)}
                   className={`${
-                    selectedCardIndex === actualIndex ? 'ring-2 ring-indigo-400' : ''
-                  } flex justify-center mb-2`}
+                    selectedCardIndex === actualIndex ? 'ring-2 ring-indigo-400 rounded-lg' : ''
+                  } flex justify-center items-center`}
                   aria-label={`${card.value} of ${card.suit}, position ${actualIndex + 1}`}
                 >
                   <MemoizedCard card={card} index={actualIndex} />

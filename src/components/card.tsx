@@ -44,6 +44,13 @@ const baseCardClasses =
 
 // Card component with optimizations
 function CardComponent({ card, className, index = 0 }: CardProps) {
+  // Logging to verify style changes
+  console.log('Rendering card with updated styling', {
+    cardValue: card.value,
+    cardSuit: card.suit,
+    index,
+  })
+
   // Memoize values that depend on props to prevent recalculation on every render
   const cardDetails = useMemo(() => {
     const suitSymbol = getSuitSymbol(card.suit)
@@ -61,7 +68,8 @@ function CardComponent({ card, className, index = 0 }: CardProps) {
 
   // Memoize card dimensions classes to avoid string concatenation on each render
   const cardDimensionsClass = useMemo(() => {
-    return 'w-[70px] sm:w-[80px] md:w-[85px] h-[110px] sm:h-[125px] md:h-[135px]'
+    // Adjusted width to match the second screenshot (narrower cards)
+    return 'w-[60px] sm:w-[70px] md:w-[75px] h-[110px] sm:h-[125px] md:h-[135px]'
   }, [])
 
   // Memoize hover effect classes
@@ -70,33 +78,9 @@ function CardComponent({ card, className, index = 0 }: CardProps) {
   }, [])
 
   return (
-    <div className='relative group'>
+    <div className='relative group flex justify-center'>
       {/* Modern drop shadow for 3D effect - simplified for better performance */}
       <div className='absolute -inset-1 rounded-lg bg-gradient-to-r from-indigo-500/30 to-purple-600/30 opacity-0 group-hover:opacity-100 blur transition duration-300 group-hover:duration-200' />
-
-      {/* Card number sticker - optimized with fewer absolute positions */}
-      <div className='absolute -top-1 -right-1 w-8 h-8 flex items-center justify-center z-30 rotate-2 transform-gpu group-hover:rotate-3 transition-transform duration-300'>
-        {/* Combined sticker effects for fewer DOM elements */}
-        <div
-          className='absolute inset-0 rounded-full'
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(124, 58, 237, 0.85) 100%)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
-            border: '1px solid rgba(99, 102, 241, 0.6)',
-          }}
-        />
-
-        {/* Sticker text */}
-        <span
-          className='relative text-white text-sm font-medium z-10'
-          style={{
-            textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          {index + 1}
-        </span>
-      </div>
 
       <div
         className={cn(
@@ -119,6 +103,30 @@ function CardComponent({ card, className, index = 0 }: CardProps) {
           borderBottom: '1px solid rgba(150, 170, 200, 0.6)',
         }}
       >
+        {/* Card number sticker - moved to top right of card */}
+        <div className='absolute top-1 right-1 w-7 h-7 flex items-center justify-center z-30 rotate-2 transform-gpu group-hover:rotate-3 transition-transform duration-300'>
+          {/* Combined sticker effects for fewer DOM elements */}
+          <div
+            className='absolute inset-0 rounded-full'
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(124, 58, 237, 0.85) 100%)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.25)',
+              border: '1px solid rgba(99, 102, 241, 0.6)',
+            }}
+          />
+
+          {/* Sticker text */}
+          <span
+            className='relative text-white text-sm font-medium z-10'
+            style={{
+              textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            {index + 1}
+          </span>
+        </div>
+
         {/* Simplified card surface texture with fewer elements */}
         <div
           className='absolute inset-0 z-0 pointer-events-none opacity-70'

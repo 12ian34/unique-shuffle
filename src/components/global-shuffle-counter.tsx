@@ -52,8 +52,9 @@ export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuf
         lastFetchTimeRef.current = now
         setIsLoading(true)
 
-        // Use a simple fetch with cache busting
-        const response = await fetch(`/api/shuffle/count?_=${now}`, {
+        // Use a simple fetch with a proper timestamp parameter (not "_")
+        // Using "t" as parameter name to avoid conflicts with other parameter names
+        const response = await fetch(`/api/shuffle/count?t=${now}`, {
           cache: 'no-store',
         })
 

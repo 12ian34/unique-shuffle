@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { updateUserAchievements, getUnlockedAchievements } from '@/lib/achievements'
+import { updateUserAchievements, getUnlockedAchievements, ACHIEVEMENTS } from '@/lib/achievements'
 import { UserStats } from '@/types'
 
 export async function GET(request: Request) {
@@ -26,17 +26,43 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // Calculate achievements based on stats
-    const achievements = getUnlockedAchievements({
+    // Get pattern-based achievements from user_achievements table
+    const { data: patternAchievements, error: patternError } = await supabaseAdmin
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', userId)
+
+    if (patternError) {
+      console.error('Error fetching pattern achievements:', patternError)
+      // Continue even if there's an error - we can still show count-based achievements
+    }
+
+    // Extract achievement IDs from pattern achievements
+    const patternAchievementIds = (patternAchievements || []).map((item) => item.achievement_id)
+
+    // Calculate count-based achievements based on stats
+    const countBasedAchievements = getUnlockedAchievements({
       total_shuffles: userStats.total_shuffles,
       shuffle_streak: userStats.shuffle_streak,
       achievements_count: userStats.achievements_count,
       most_common_cards: [],
     } as UserStats)
 
+    // Combine both types of achievements
+    const countBasedAchievementIds = countBasedAchievements.map((achievement) => achievement.id)
+    const uniqueAchievementSet = new Set([...countBasedAchievementIds, ...patternAchievementIds])
+    const allAchievementIds = Array.from(uniqueAchievementSet)
+
+    // Map IDs back to full achievement objects
+    const allAchievements = allAchievementIds
+      .map((id) => {
+        return ACHIEVEMENTS.find((a) => a.id === id)
+      })
+      .filter(Boolean) // Remove any undefined entries
+
     return NextResponse.json({
-      achievements,
-      count: achievements.length,
+      achievements: allAchievements,
+      count: allAchievements.length,
       stats: userStats,
     })
   } catch (error) {
@@ -68,18 +94,65 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // Update achievements
-    const { achievements, updated } = await updateUserAchievements(supabaseAdmin, userId, {
+    // Get pattern-based achievements from user_achievements table
+    const { data: patternAchievements, error: patternError } = await supabaseAdmin
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', userId)
+
+    if (patternError) {
+      console.error('Error fetching pattern achievements:', patternError)
+      // Continue even if there's an error - we can still update count-based achievements
+    }
+
+    // Extract achievement IDs from pattern achievements
+    const patternAchievementIds = (patternAchievements || []).map((item) => item.achievement_id)
+
+    // Calculate count-based achievements based on stats
+    const countBasedAchievements = getUnlockedAchievements({
       total_shuffles: userStats.total_shuffles,
       shuffle_streak: userStats.shuffle_streak,
       achievements_count: userStats.achievements_count,
       most_common_cards: [],
     } as UserStats)
 
+    // Combine both types of achievements
+    const countBasedAchievementIds = countBasedAchievements.map((achievement) => achievement.id)
+    const uniqueAchievementSet = new Set([...countBasedAchievementIds, ...patternAchievementIds])
+    const allAchievementIds = Array.from(uniqueAchievementSet)
+
+    // Map IDs back to full achievement objects
+    const allAchievements = allAchievementIds
+      .map((id) => ACHIEVEMENTS.find((a) => a.id === id))
+      .filter(Boolean) // Remove any undefined entries
+
+    // Check if achievements count has changed and update leaderboard if needed
+    if (allAchievements.length !== userStats.achievements_count) {
+      const { error: updateError } = await supabaseAdmin
+        .from('leaderboard')
+        .update({ achievements_count: allAchievements.length })
+        .eq('user_id', userId)
+
+      if (updateError) {
+        console.error('Error updating achievements count:', updateError)
+        return NextResponse.json({
+          achievements: allAchievements,
+          count: allAchievements.length,
+          updated: false,
+        })
+      }
+
+      return NextResponse.json({
+        achievements: allAchievements,
+        count: allAchievements.length,
+        updated: true,
+      })
+    }
+
     return NextResponse.json({
-      achievements,
-      count: achievements.length,
-      updated,
+      achievements: allAchievements,
+      count: allAchievements.length,
+      updated: false,
     })
   } catch (error) {
     console.error('Unexpected error updating achievements:', error)

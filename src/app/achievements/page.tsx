@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import { Database } from '@/types/supabase'
 import { Achievements } from '@/components/achievements'
 import { UserStats } from '@/types'
-import { getUnlockedAchievements } from '@/lib/achievements'
-import { Database } from '@/types/supabase'
+import { Achievement } from '@/types'
 
 export default function AchievementsPage() {
   const [stats, setStats] = useState<UserStats>({
@@ -24,43 +24,63 @@ export default function AchievementsPage() {
   )
 
   useEffect(() => {
-    async function fetchUserData() {
+    const loadAchievements = async () => {
       try {
         setIsLoading(true)
-        setError(null)
-
         const {
           data: { user },
         } = await supabase.auth.getUser()
 
         if (!user) {
+          setError('Please sign in to view your achievements')
           setIsLoading(false)
           return
         }
 
-        // Fetch user stats
-        const response = await fetch(`/api/user/stats?userId=${user.id}`)
+        // First, get user stats
+        const { data: leaderboardData, error: leaderboardError } = await supabase
+          .from('leaderboard')
+          .select('total_shuffles, shuffle_streak, achievements_count')
+          .eq('user_id', user.id)
+          .single()
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          throw new Error(errorData.error || `Server error: ${response.status}`)
+        if (leaderboardError) {
+          console.error('Error fetching user stats:', leaderboardError)
+          setError('Failed to load stats. Please try again.')
+          setIsLoading(false)
+          return
         }
 
-        const statsData: UserStats = await response.json()
-        setStats(statsData)
+        setStats({
+          total_shuffles: leaderboardData.total_shuffles || 0,
+          shuffle_streak: leaderboardData.shuffle_streak || 0,
+          achievements_count: leaderboardData.achievements_count || 0,
+          most_common_cards: [],
+        })
 
-        // Determine unlocked achievements
-        const achievements = getUnlockedAchievements(statsData)
-        setUnlockedAchievements(achievements.map((a) => a.id))
+        // Now fetch all achievements using the API endpoint that combines both types
+        const response = await fetch(`/api/achievements?userId=${user.id}`)
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch achievements')
+        }
+
+        const { achievements } = await response.json()
+
+        if (Array.isArray(achievements)) {
+          // Extract just the IDs for the unlockedAchievements array
+          const achievementIds = achievements.map((achievement: Achievement) => achievement.id)
+          setUnlockedAchievements(achievementIds)
+        }
       } catch (error) {
-        console.error('Error fetching user data:', error)
-        setError(error instanceof Error ? error.message : 'Failed to load achievements')
+        console.error('Error fetching achievements:', error)
+        setError('Failed to load achievements. Please try again.')
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchUserData()
+    loadAchievements()
   }, [supabase])
 
   return (

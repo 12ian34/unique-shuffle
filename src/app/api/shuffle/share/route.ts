@@ -52,6 +52,8 @@ export async function POST(request: Request) {
     if (!shuffleData.share_code) {
       const shareCode = nanoid(10) // Generate a short unique ID
 
+      console.log('Generating share code and setting is_shared=true for shuffle ID:', shuffleId)
+
       const { data: updatedShuffle, error: updateError } = await supabaseAdmin
         .from('global_shuffles')
         .update({ share_code: shareCode, is_shared: true })
@@ -60,24 +62,62 @@ export async function POST(request: Request) {
         .single()
 
       if (updateError) {
+        console.error('Failed to update shuffle with share code:', updateError)
         return NextResponse.json(
           { error: 'Failed to generate share code', details: updateError.message },
           { status: 500 }
         )
       }
 
+      console.log('Successfully updated shuffle with share code and set is_shared=true')
+
+      // Get the base URL from the request
+      const protocol = request.headers.get('x-forwarded-proto') || 'http'
+      const host =
+        request.headers.get('host') ||
+        process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '') ||
+        'localhost:3000'
+      const baseUrl = `${protocol}://${host}`
+
       return NextResponse.json({
         success: true,
         shareCode,
-        shareUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/shared/${shareCode}`,
+        shareUrl: `${baseUrl}/shared/${encodeURIComponent(shareCode)}`,
       })
     }
 
     // Return existing share code
+    // Make sure is_shared is set to true even if share_code already exists
+    if (!shuffleData.is_shared) {
+      console.log(
+        'Share code exists but is_shared=false, updating is_shared to true for shuffle ID:',
+        shuffleId
+      )
+
+      const { error: updateError } = await supabaseAdmin
+        .from('global_shuffles')
+        .update({ is_shared: true })
+        .eq('id', shuffleId)
+
+      if (updateError) {
+        console.error('Failed to update is_shared flag:', updateError)
+      } else {
+        console.log('Successfully updated is_shared to true')
+      }
+    }
+
+    // Get the base URL from the request
+    const protocol = request.headers.get('x-forwarded-proto') || 'http'
+    const host =
+      request.headers.get('host') ||
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '') ||
+      'localhost:3000'
+    const baseUrl = `${protocol}://${host}`
+
     return NextResponse.json({
       success: true,
       shareCode: shuffleData.share_code,
-      shareUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/shared/${shuffleData.share_code}`,
+      shareUrl: `${baseUrl}/shared/${encodeURIComponent(shuffleData.share_code)}`,
     })
   } catch (error) {
     console.error('Unexpected error sharing shuffle:', error)

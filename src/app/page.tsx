@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useCallback } from 'react'
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { ShuffleDisplay } from '@/components/shuffle-display'
 import { Card as CardType, UserStats } from '@/types'
@@ -33,6 +33,8 @@ export default function Home() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   )
+  // Add a ref to track when we last logged
+  const lastLogTimeRef = useRef<number>(0)
 
   const loadUserStats = useCallback(async () => {
     if (isLoading) return // Prevent concurrent loads
@@ -43,7 +45,12 @@ export default function Home() {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) {
-        console.log('No user found')
+        // Only log if it's been more than 5 seconds since the last log
+        const now = Date.now()
+        if (now - lastLogTimeRef.current > 5000) {
+          console.log('No user found')
+          lastLogTimeRef.current = now
+        }
         setIsLoading(false)
         return
       }
@@ -64,7 +71,12 @@ export default function Home() {
       }
 
       if (!shuffles || shuffles.length === 0) {
-        console.log('No shuffles found')
+        // Only log if it's been more than 5 seconds since the last log
+        const now = Date.now()
+        if (now - lastLogTimeRef.current > 5000) {
+          console.log('No shuffles found')
+          lastLogTimeRef.current = now
+        }
         setStats({
           total_shuffles: 0,
           shuffle_streak: 0,

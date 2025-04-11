@@ -17,6 +17,21 @@ const categoryNames: Record<string, string> = {
   [AchievementCategory.TIME_BASED]: 'Time-Based Achievements',
   [AchievementCategory.STREAKS]: 'Shuffling Streaks',
   [AchievementCategory.MILESTONES]: 'Game Milestones',
+  [AchievementCategory.POP_CULTURE]: 'Pop Culture References',
+  [AchievementCategory.QUIRKY]: 'Quirky Achievements',
+}
+
+// Category icons (emojis for now, could be replaced with SVG icons)
+const categoryIcons: Record<string, string> = {
+  [AchievementCategory.SHUFFLE_COUNT]: '🔢',
+  [AchievementCategory.SHUFFLE_PATTERNS]: '🃏',
+  [AchievementCategory.SPECIAL_SHUFFLES]: '✨',
+  [AchievementCategory.TIME_BASED]: '⏰',
+  [AchievementCategory.STREAKS]: '🔥',
+  [AchievementCategory.MILESTONES]: '🏆',
+  [AchievementCategory.POP_CULTURE]: '🎬',
+  [AchievementCategory.QUIRKY]: '🎭',
+  other: '❓',
 }
 
 export function Achievements({ unlockedAchievements, className }: AchievementsProps) {
@@ -40,6 +55,8 @@ export function Achievements({ unlockedAchievements, className }: AchievementsPr
       AchievementCategory.SHUFFLE_PATTERNS,
       AchievementCategory.SPECIAL_SHUFFLES,
       AchievementCategory.TIME_BASED,
+      AchievementCategory.POP_CULTURE,
+      AchievementCategory.QUIRKY,
       'other',
     ]
     return order.indexOf(a) - order.indexOf(b)
@@ -51,8 +68,16 @@ export function Achievements({ unlockedAchievements, className }: AchievementsPr
 
       {orderedCategories.map((category) => (
         <div key={category} className='mb-6'>
-          <h4 className='text-md font-medium text-slate-200 mb-3'>
+          <h4 className='text-md font-medium text-slate-200 mb-3 flex items-center'>
+            <span className='mr-2'>{categoryIcons[category] || '❓'}</span>
             {categoryNames[category] || 'Other Achievements'}
+            <span className='ml-2 text-sm text-slate-400'>
+              {
+                achievementsByCategory[category].filter((a) => unlockedAchievements.includes(a.id))
+                  .length
+              }
+              /{achievementsByCategory[category].length}
+            </span>
           </h4>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             {achievementsByCategory[category].map((achievement) => (

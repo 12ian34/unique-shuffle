@@ -99,18 +99,6 @@ export function ShuffleHistory({ className }: ShuffleHistoryProps) {
 
       const { shareCode, shareUrl } = await response.json()
 
-      // Record share in analytics
-      await fetch('/api/shuffle/analytics', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shuffleId,
-          action: 'share',
-        }),
-      })
-
       setShareUrls((prev) => ({ ...prev, [shuffleId]: shareUrl }))
 
       // Update the shuffle in state to show it's shared
@@ -152,7 +140,6 @@ export function ShuffleHistory({ className }: ShuffleHistoryProps) {
 
   return (
     <div className={className}>
-      <h2 className='text-xl font-semibold mb-4 text-slate-100'>Your Shuffle History</h2>
       <div className='space-y-4'>
         {shuffles.map((shuffle) => (
           <div key={shuffle.id} className='border border-slate-700 bg-slate-900 rounded-lg p-4'>
@@ -196,9 +183,11 @@ export function ShuffleHistory({ className }: ShuffleHistoryProps) {
             </div>
 
             {expanded[shuffle.id] && (
-              <div className='grid grid-cols-4 gap-2 mt-4'>
+              <div className='grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 mt-4'>
                 {shuffle.cards.map((card, index) => (
-                  <Card key={index} card={card} />
+                  <div key={index} className='flex justify-center items-center'>
+                    <Card card={card} index={index} />
+                  </div>
                 ))}
               </div>
             )}

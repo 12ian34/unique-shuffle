@@ -28,8 +28,8 @@ const navItems: NavItem[] = [
     href: '/stats',
   },
   {
-    label: 'analytics',
-    href: '/analytics',
+    label: 'saved',
+    href: '/saved-shuffles',
   },
   {
     label: 'profile',
@@ -58,7 +58,7 @@ export function NavbarWithStats() {
     try {
       // Don't reload stats more than once per second to prevent performance issues
       const now = Date.now()
-      if (now - statsTimestampRef.current < 1000 && !isLoading) {
+      if (now - statsTimestampRef.current < 2000 && !isLoading) {
         return
       }
       statsTimestampRef.current = now
@@ -86,6 +86,7 @@ export function NavbarWithStats() {
         .single()
 
       if (leaderboardError) {
+        console.log('No leaderboard data found for user')
         // If no data, just set zeros (will be created by save API later)
         setStats({
           total_shuffles: 0,
@@ -192,10 +193,6 @@ export function Navbar({
 
   // Check if current path should be considered active for a nav item
   const isPathActive = (itemHref: string) => {
-    // Special case for Analytics: when on /dashboard, highlight the Analytics tab
-    if (itemHref === '/analytics' && pathname === '/dashboard') {
-      return true
-    }
     return pathname === itemHref
   }
 

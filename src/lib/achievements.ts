@@ -9,6 +9,8 @@ export enum AchievementCategory {
   STREAKS = 'streaks',
   SPECIAL_SHUFFLES = 'special_shuffles',
   MILESTONES = 'milestones',
+  POP_CULTURE = 'pop_culture',
+  QUIRKY = 'quirky',
 }
 
 // Define available achievements
@@ -107,9 +109,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Triple Aces',
     description: 'Get 3 Aces in the first 5 cards of your shuffle',
     condition: (stats: UserStats) => {
-      // This is a placeholder - the real implementation would need to track card positions
-      // This will be rare enough that we can assume it hasn't happened yet
-      return stats.total_shuffles > 150
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SHUFFLE_PATTERNS,
   },
@@ -118,9 +119,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Sequential Genius',
     description: 'Get 3 consecutive cards of the same suit in sequence',
     condition: (stats: UserStats) => {
-      // This is a placeholder - the real implementation would need to track card sequences
-      // This will be rare enough that we can assume it hasn't happened yet unless they've shuffled a lot
-      return stats.total_shuffles > 200
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SHUFFLE_PATTERNS,
   },
@@ -129,8 +129,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Three Pairs',
     description: 'Get 3 pairs of the same value in a single shuffle',
     condition: (stats: UserStats) => {
-      // This is a placeholder - real implementation would need specific shuffle tracking
-      return stats.total_shuffles > 175
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SHUFFLE_PATTERNS,
   },
@@ -139,8 +139,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Symmetric Shuffle',
     description: 'Get a shuffle with perfect red/black alternating pattern',
     condition: (stats: UserStats) => {
-      // This is extremely unlikely to happen naturally
-      return stats.total_shuffles > 300
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SHUFFLE_PATTERNS,
   },
@@ -149,8 +149,59 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Rainbow Shuffle',
     description: 'Get all four suits in the first four cards',
     condition: (stats: UserStats) => {
-      // This is a placeholder - would need to track card positions
-      return stats.total_shuffles > 120
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SHUFFLE_PATTERNS,
+  },
+  {
+    id: 'royal_flush',
+    name: 'Royal Flush',
+    description:
+      'Get a royal flush (A, K, Q, J, 10 of the same suit) in order somewhere in your shuffle',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SHUFFLE_PATTERNS,
+  },
+  {
+    id: 'lady_luck',
+    name: 'Lady Luck',
+    description: 'Get all the Queens in the first 10 cards',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SHUFFLE_PATTERNS,
+  },
+  {
+    id: 'suited_up',
+    name: 'Suited Up',
+    description: 'Get 5 cards of the same suit in a row',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SHUFFLE_PATTERNS,
+  },
+  {
+    id: 'even_steven',
+    name: 'Even Steven',
+    description: 'Get only even-numbered cards in the first 5 cards',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SHUFFLE_PATTERNS,
+  },
+  {
+    id: 'ace_hunter',
+    name: 'Ace Hunter',
+    description: 'Get all 4 Aces in a single shuffle',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SHUFFLE_PATTERNS,
   },
@@ -161,9 +212,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Midnight Shuffler',
     description: 'Complete a shuffle between midnight and 3 AM',
     condition: (stats: UserStats) => {
-      // This would require tracking shuffle timestamps
-      // For now, treat as a rare achievement that needs more shuffles
-      return stats.total_shuffles > 100
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.SPECIAL_SHUFFLES,
   },
@@ -172,9 +222,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Morning Routine',
     description: 'Complete shuffles on 5 consecutive mornings',
     condition: (stats: UserStats) => {
-      // Would need timestamp tracking
-      // For now, assume this is difficult and requires both shuffles and streak
-      return stats.total_shuffles > 30 && stats.shuffle_streak >= 5
+      // Placeholder - requires streak tracking
+      return false
     },
     category: AchievementCategory.SPECIAL_SHUFFLES,
   },
@@ -183,9 +232,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Weekend Warrior',
     description: 'Complete shuffles on 3 consecutive weekends',
     condition: (stats: UserStats) => {
-      // Would need timestamp and day tracking
-      // For now, assume this requires longer streak
-      return stats.shuffle_streak >= 15
+      // Placeholder - requires streak tracking
+      return false
     },
     category: AchievementCategory.SPECIAL_SHUFFLES,
   },
@@ -194,8 +242,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Shuffle Sprint',
     description: 'Complete 5 shuffles within one hour',
     condition: (stats: UserStats) => {
-      // Would need timestamp tracking
-      // For now, give to people who've done at least 25 shuffles
+      // Placeholder - would need timestamp tracking
       return stats.total_shuffles >= 25
     },
     category: AchievementCategory.SPECIAL_SHUFFLES,
@@ -205,9 +252,28 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Daily Double',
     description: 'Complete exactly 2 shuffles per day for 5 consecutive days',
     condition: (stats: UserStats) => {
-      // Would need detailed tracking of daily shuffles
-      // Make this hard to achieve, requiring both streak and substantial shuffles
-      return stats.shuffle_streak >= 7 && stats.total_shuffles >= 40
+      // Placeholder - requires streak tracking
+      return false
+    },
+    category: AchievementCategory.SPECIAL_SHUFFLES,
+  },
+  {
+    id: 'quick_draw',
+    name: 'Quick Draw',
+    description: 'Complete a shuffle in under 5 seconds',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.SPECIAL_SHUFFLES,
+  },
+  {
+    id: 'night_owl',
+    name: 'Night Owl',
+    description: 'Complete shuffles between 10 PM and 4 AM for 5 consecutive days',
+    condition: (stats: UserStats) => {
+      // Placeholder - requires streak tracking
+      return false
     },
     category: AchievementCategory.SPECIAL_SHUFFLES,
   },
@@ -218,8 +284,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'New Year Shuffle',
     description: "Complete a shuffle on New Year's Day",
     condition: (stats: UserStats) => {
-      // Would need date tracking - for now make rare
-      return stats.total_shuffles >= 75 && stats.shuffle_streak >= 10
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.TIME_BASED,
   },
@@ -228,8 +294,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Monday Blues',
     description: 'Complete shuffles on 4 consecutive Mondays',
     condition: (stats: UserStats) => {
-      // Would need day-of-week tracking
-      return stats.shuffle_streak >= 21 // About 3 weeks needed to hit 4 Mondays
+      // Placeholder - requires streak tracking
+      return false
     },
     category: AchievementCategory.TIME_BASED,
   },
@@ -238,9 +304,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Leap of Faith',
     description: 'Complete a shuffle on February 29 (Leap Day)',
     condition: (stats: UserStats) => {
-      // Super rare achievement - almost impossible to get except on leap years
-      // For now, make this extremely difficult
-      return stats.total_shuffles > 500 && stats.shuffle_streak > 60
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.TIME_BASED,
   },
@@ -249,8 +314,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Shuffle Marathon',
     description: 'Shuffle at least once every hour for 12 consecutive hours',
     condition: (stats: UserStats) => {
-      // Would need hourly tracking - for now make this very difficult
-      return stats.total_shuffles >= 200
+      // Placeholder - requires streak tracking
+      return false
     },
     category: AchievementCategory.TIME_BASED,
   },
@@ -259,8 +324,38 @@ export const ACHIEVEMENTS: Achievement[] = [
     name: 'Holiday Shuffler',
     description: 'Complete shuffles on 3 different holidays',
     condition: (stats: UserStats) => {
-      // Would need holiday tracking
-      return stats.total_shuffles >= 100 && stats.shuffle_streak >= 20
+      // Placeholder - requires holiday tracking
+      return false
+    },
+    category: AchievementCategory.TIME_BASED,
+  },
+  {
+    id: 'friday_13',
+    name: 'Friday the 13th',
+    description: 'Complete a shuffle on Friday the 13th',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.TIME_BASED,
+  },
+  {
+    id: 'shuffle_o_clock',
+    name: "Shuffle o'Clock",
+    description: 'Complete a shuffle at exactly XX:00 (top of the hour)',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.TIME_BASED,
+  },
+  {
+    id: 'palindrome_shuffle',
+    name: 'Palindrome Shuffle',
+    description: 'Complete a shuffle on a palindrome date (like 2/22/22)',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
     },
     category: AchievementCategory.TIME_BASED,
   },
@@ -309,14 +404,101 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: (stats: UserStats) => stats.shuffle_streak >= 30,
     category: AchievementCategory.MILESTONES,
   },
+  {
+    id: 'completionist',
+    name: 'Completionist',
+    description: 'Unlock 25% of all available achievements',
+    condition: (stats: UserStats) => {
+      // This achievement is now managed by the achievements API
+      return false
+    },
+    category: AchievementCategory.MILESTONES,
+  },
+  {
+    id: 'achievement_hunter',
+    name: 'Achievement Hunter',
+    description: 'Unlock 50% of all available achievements',
+    condition: (stats: UserStats) => {
+      // This achievement is now managed by the achievements API
+      return false
+    },
+    category: AchievementCategory.MILESTONES,
+  },
+  {
+    id: 'shuffle_legend',
+    name: 'Shuffle Legend',
+    description: 'Unlock 75% of all available achievements',
+    condition: (stats: UserStats) => {
+      // This achievement is now managed by the achievements API
+      return false
+    },
+    category: AchievementCategory.MILESTONES,
+  },
+
+  // Pop culture references
+  {
+    id: 'perfect_shuffle',
+    name: 'Perfect Shuffle',
+    description: 'Shuffle and get cards in perfect sequential order',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.POP_CULTURE,
+  },
+  {
+    id: 'agent_007',
+    name: '007',
+    description: 'Get the 7 of spades in the 7th position',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.POP_CULTURE,
+  },
+  {
+    id: 'blackjack',
+    name: 'Blackjack!',
+    description: 'Get exactly 21 as the sum of the first two cards (Ace + 10/J/Q/K)',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.POP_CULTURE,
+  },
+
+  // Quirky achievements
+  {
+    id: 'high_roller',
+    name: 'High Roller',
+    description: 'Get 5 face cards in a row in your shuffle',
+    condition: (stats: UserStats) => {
+      // Placeholder - actual implementation uses user_achievements table
+      return false
+    },
+    category: AchievementCategory.QUIRKY,
+  },
+  {
+    id: 'deck_inspector',
+    name: 'Deck Inspector',
+    description: 'View the stats page 10 times',
+    condition: (stats: UserStats) => {
+      // The real implementation would track page views
+      return false
+    },
+    category: AchievementCategory.QUIRKY,
+  },
 ]
 
 // Function to check which achievements a user has earned
+// Note: This only handles count-based achievements
+// Pattern-based achievements are handled by the achievements API
 export function getUnlockedAchievements(stats: UserStats): Achievement[] {
   return ACHIEVEMENTS.filter((achievement) => achievement.condition(stats))
 }
 
-// Function to update user achievements in the database
+// This function is now superseded by the achievements API
+// Kept for backward compatibility
 export async function updateUserAchievements(
   supabaseAdmin: any,
   userId: string,
@@ -330,25 +512,56 @@ export async function updateUserAchievements(
       .eq('user_id', userId)
       .single()
 
-    // Calculate new achievements
-    const unlockedAchievements = getUnlockedAchievements(stats)
+    // Get count-based achievements (pattern-based are handled separately)
+    const countBasedAchievements = getUnlockedAchievements(stats)
+
+    // Get pattern-based achievements
+    const { data: patternAchievements, error: patternError } = await supabaseAdmin
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', userId)
+
+    if (patternError) {
+      console.error('Error fetching pattern achievements:', patternError)
+      // Continue even if there's an error - we can still update count-based achievements
+    }
+
+    // Define interface for pattern achievement data
+    interface PatternAchievement {
+      achievement_id: string
+    }
+
+    // Extract achievement IDs from pattern achievements
+    const patternAchievementIds = (patternAchievements || []).map(
+      (item: PatternAchievement) => item.achievement_id
+    )
+
+    // Combine both types of achievements
+    const countBasedAchievementIds = countBasedAchievements.map((achievement) => achievement.id)
+    const uniqueAchievementSet = new Set([...countBasedAchievementIds, ...patternAchievementIds])
+    const allAchievementIds = Array.from(uniqueAchievementSet)
+
+    // Map IDs back to full achievement objects
+    const allAchievements = allAchievementIds
+      .map((id) => ACHIEVEMENTS.find((a) => a.id === id))
+      .filter(Boolean) as Achievement[] // Remove any undefined entries
 
     // If the number of achievements has changed, update the database
-    if (unlockedAchievements.length !== (currentEntry?.achievements_count || 0)) {
+    if (allAchievements.length !== (currentEntry?.achievements_count || 0)) {
       const { error } = await supabaseAdmin
         .from('leaderboard')
-        .update({ achievements_count: unlockedAchievements.length })
+        .update({ achievements_count: allAchievements.length })
         .eq('user_id', userId)
 
       if (error) {
         console.error('Error updating achievements count:', error)
-        return { achievements: unlockedAchievements, updated: false }
+        return { achievements: allAchievements, updated: false }
       }
 
-      return { achievements: unlockedAchievements, updated: true }
+      return { achievements: allAchievements, updated: true }
     }
 
-    return { achievements: unlockedAchievements, updated: false }
+    return { achievements: allAchievements, updated: false }
   } catch (error) {
     console.error('Error updating achievements:', error)
     return { achievements: [], updated: false }

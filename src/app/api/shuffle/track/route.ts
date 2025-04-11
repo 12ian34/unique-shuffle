@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 import { generateUsername } from '@/utils/username-generator'
+import * as achievementChecks from '@/lib/achievement-checks'
+import { getUnlockedAchievements } from '@/lib/achievements'
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServer()
@@ -53,9 +55,133 @@ export async function POST(request: Request) {
       console.log('Current global shuffle count after insertion:', currentCount)
     }
 
-    // Update leaderboard for logged-in users, even for non-saved shuffles
+    // For logged-in users, check for achievements on EVERY shuffle, not just saved ones
     if (userId) {
       try {
+        // Check for pattern-based achievements in the current shuffle
+        const patternBasedAchievements = []
+
+        // Check for pattern achievements
+        if (achievementChecks.hasTripleAcesFirst(cards)) {
+          patternBasedAchievements.push('triple_aces_first')
+        }
+
+        if (achievementChecks.hasSequentialSameSuit(cards)) {
+          patternBasedAchievements.push('sequential_shuffle')
+        }
+
+        if (achievementChecks.hasThreePairs(cards)) {
+          patternBasedAchievements.push('three_pairs')
+        }
+
+        if (achievementChecks.hasSymmetricShuffle(cards)) {
+          patternBasedAchievements.push('symmetric_shuffle')
+        }
+
+        if (achievementChecks.hasRainbowShuffle(cards)) {
+          patternBasedAchievements.push('rainbow_shuffle')
+        }
+
+        if (achievementChecks.hasRoyalFlush(cards)) {
+          patternBasedAchievements.push('royal_flush')
+        }
+
+        if (achievementChecks.hasAllQueensEarly(cards)) {
+          patternBasedAchievements.push('lady_luck')
+        }
+
+        if (achievementChecks.hasFiveSameSuitInRow(cards)) {
+          patternBasedAchievements.push('suited_up')
+        }
+
+        if (achievementChecks.hasOnlyEvenCardsFirst(cards)) {
+          patternBasedAchievements.push('even_steven')
+        }
+
+        if (achievementChecks.hasAllAces(cards)) {
+          patternBasedAchievements.push('ace_hunter')
+        }
+
+        if (achievementChecks.has007Pattern(cards)) {
+          patternBasedAchievements.push('agent_007')
+        }
+
+        if (achievementChecks.hasBlackjack(cards)) {
+          patternBasedAchievements.push('blackjack')
+        }
+
+        if (achievementChecks.hasFiveFaceCardsInRow(cards)) {
+          patternBasedAchievements.push('high_roller')
+        }
+
+        if (achievementChecks.hasPerfectSequentialOrder(cards)) {
+          patternBasedAchievements.push('perfect_shuffle')
+        }
+
+        // Check time-based achievements
+        const timeChecks = achievementChecks.checkTimeBasedAchievements()
+
+        if (timeChecks.isMidnight) {
+          patternBasedAchievements.push('midnight_shuffle')
+        }
+
+        if (timeChecks.isMorning) {
+          // Just mark the achievement - we'll need streak tracking for the full achievement
+          patternBasedAchievements.push('morning_routine_single')
+        }
+
+        if (timeChecks.isWeekend) {
+          // Just mark the achievement - we'll need streak tracking for the full achievement
+          patternBasedAchievements.push('weekend_warrior_single')
+        }
+
+        if (timeChecks.isNightTime) {
+          patternBasedAchievements.push('night_owl_single')
+        }
+
+        if (timeChecks.isTopOfHour) {
+          patternBasedAchievements.push('shuffle_o_clock')
+        }
+
+        if (timeChecks.isNewYearsDay) {
+          patternBasedAchievements.push('new_year_shuffle')
+        }
+
+        if (timeChecks.isMonday) {
+          // Just mark the achievement - we'll need streak tracking for full achievement
+          patternBasedAchievements.push('monday_blues_single')
+        }
+
+        if (timeChecks.isLeapDay) {
+          patternBasedAchievements.push('leap_day')
+        }
+
+        if (timeChecks.isFridayThe13th) {
+          patternBasedAchievements.push('friday_13')
+        }
+
+        if (timeChecks.isPalindromeDate) {
+          patternBasedAchievements.push('palindrome_shuffle')
+        }
+
+        // If we found any pattern-based achievements, store them
+        if (patternBasedAchievements.length > 0) {
+          // Store the pattern achievements for this user
+          try {
+            await supabaseAdmin.from('user_achievements').insert(
+              patternBasedAchievements.map((achievementId) => ({
+                user_id: userId,
+                achievement_id: achievementId,
+                shuffle_id: data[0]?.id,
+                achieved_at: new Date().toISOString(),
+              }))
+            )
+            console.log(`Stored ${patternBasedAchievements.length} pattern-based achievements`)
+          } catch (achievementError) {
+            console.error('Error storing pattern achievements:', achievementError)
+          }
+        }
+
         // Check if user has a leaderboard entry
         const { data: leaderboardData, error: leaderboardFetchError } = await supabaseAdmin
           .from('leaderboard')

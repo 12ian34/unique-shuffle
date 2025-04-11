@@ -1,38 +1,39 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Card as CardType, UserStats } from '@/types'
 import { Database } from '@/types/supabase'
 import { Leaderboard } from '@/components/leaderboard'
 
 export default function StatsPage() {
-  const [stats, setStats] = useState<UserStats>({
-    total_shuffles: 0,
-    shuffle_streak: 0,
-    achievements_count: 0,
-    most_common_cards: [],
-  })
+  const [stats, setStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const [supabase] = useState(() =>
+    createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
   )
+  const lastLogTimeRef = useRef<number>(0)
 
   const loadUserStats = async () => {
     try {
+      setIsLoading(true)
       const {
         data: { user },
       } = await supabase.auth.getUser()
+
       if (!user) {
-        console.log('No user found')
+        const now = Date.now()
+        if (now - lastLogTimeRef.current > 5000) {
+          console.log('No user found for stats')
+          lastLogTimeRef.current = now
+        }
         setIsLoading(false)
         return
       }
 
-      console.log('Loading stats for user:', user.id)
-
-      // Get all user shuffles from database, regardless of saved status
       const { data: shuffles, error: shufflesError } = await supabase
         .from('global_shuffles')
         .select('cards, created_at')
@@ -47,7 +48,11 @@ export default function StatsPage() {
       }
 
       if (!shuffles || shuffles.length === 0) {
-        console.log('No shuffles found')
+        const now = Date.now()
+        if (now - lastLogTimeRef.current > 5000) {
+          console.log('No shuffles found')
+          lastLogTimeRef.current = now
+        }
         setStats({
           total_shuffles: 0,
           shuffle_streak: 0,
@@ -58,7 +63,11 @@ export default function StatsPage() {
         return
       }
 
-      console.log(`Found ${shuffles.length} shuffles`)
+      const now = Date.now()
+      if (now - lastLogTimeRef.current > 5000) {
+        console.log(`Found ${shuffles.length} shuffles`)
+        lastLogTimeRef.current = now
+      }
 
       // Directly count card occurrences without JSON stringification
       const cardCounts: Record<string, { card: CardType; count: number }> = {}
@@ -136,11 +145,15 @@ export default function StatsPage() {
         most_common_cards: Object.values(cardCounts).sort((a, b) => b.count - a.count),
       }
 
-      console.log('Stats calculated:', {
-        shuffles: newStats.total_shuffles,
-        streak: newStats.shuffle_streak,
-        topCard: newStats.most_common_cards[0]?.card,
-      })
+      // Only log detailed stats if it's been more than 5 seconds since the last log
+      const statsNow = Date.now()
+      if (statsNow - lastLogTimeRef.current > 5000) {
+        console.log('Stats calculated:', {
+          shuffles: newStats.total_shuffles,
+          streak: newStats.shuffle_streak,
+        })
+        lastLogTimeRef.current = statsNow
+      }
 
       setStats(newStats)
     } catch (error) {
@@ -160,7 +173,12 @@ export default function StatsPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'global_shuffles' },
         (payload) => {
-          console.log('Shuffles change received!', payload)
+          // Only log if it's been more than 5 seconds since the last log
+          const now = Date.now()
+          if (now - lastLogTimeRef.current > 5000) {
+            console.log('Shuffles change received')
+            lastLogTimeRef.current = now
+          }
           // Always reload stats for any shuffle by this user
           if (payload.new && typeof payload.new === 'object' && 'user_id' in payload.new) {
             loadUserStats() // Refresh stats when changes occur
@@ -173,7 +191,12 @@ export default function StatsPage() {
     const leaderboardSubscription = supabase
       .channel('leaderboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard' }, (payload) => {
-        console.log('Leaderboard change received!', payload)
+        // Only log if it's been more than 5 seconds since the last log
+        const now = Date.now()
+        if (now - lastLogTimeRef.current > 5000) {
+          console.log('Leaderboard change received')
+          lastLogTimeRef.current = now
+        }
         loadUserStats() // Refresh stats when leaderboard changes
       })
       .subscribe()
