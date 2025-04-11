@@ -8,13 +8,14 @@ import { Card as CardType } from '@/types'
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/supabase'
 
-interface SharedShuffleParams {
-  params: {
+interface PageProps {
+  params: Promise<{
     code: string
-  }
+  }>
 }
 
-export default function SharedShuffle({ params }: SharedShuffleParams) {
+export default function SharedShuffle({ params }: PageProps) {
+  const [code, setCode] = useState<string>('')
   const [shuffle, setShuffle] = useState<{
     id: number
     cards: CardType[]
@@ -30,6 +31,22 @@ export default function SharedShuffle({ params }: SharedShuffleParams) {
   )
 
   useEffect(() => {
+    const loadParams = async () => {
+      try {
+        const resolvedParams = await params
+        setCode(resolvedParams.code)
+      } catch (error) {
+        console.error('Error resolving params:', error)
+        setError('Invalid parameters')
+      }
+    }
+
+    loadParams()
+  }, [params])
+
+  useEffect(() => {
+    if (!code) return
+
     const loadSharedShuffle = async () => {
       try {
         setLoading(true)
@@ -41,7 +58,7 @@ export default function SharedShuffle({ params }: SharedShuffleParams) {
         setUser(user)
 
         // Fetch the shared shuffle
-        const response = await fetch(`/api/shuffle/shared?code=${params.code}`)
+        const response = await fetch(`/api/shuffle/shared?code=${code}`)
 
         if (!response.ok) {
           throw new Error('Shuffle not found')
@@ -59,7 +76,7 @@ export default function SharedShuffle({ params }: SharedShuffleParams) {
 
     loadSharedShuffle()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.code])
+  }, [code])
 
   const saveShuffle = async () => {
     if (!user || !shuffle) return
