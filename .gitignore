@@ -24,7 +24,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env.test.local 
+.env.test
+.env.local
+.env
 
 # vercel
 .vercel
@@ -41,8 +44,5 @@ next-env.d.ts
 .branches
 .temp
 
-# Testing
-.env.test.local 
-.env.test
 # Local Netlify folder
 .netlify
