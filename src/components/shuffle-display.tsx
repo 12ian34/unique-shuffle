@@ -13,11 +13,11 @@ import dynamic from 'next/dynamic'
 const MemoizedCard = memo(Card)
 
 interface ShuffleDisplayProps {
-  onSaveShuffle: (cards: CardType[]) => Promise<void>
+  onSaveShuffleAction: (cards: CardType[]) => Promise<void>
   className?: string
 }
 
-export function ShuffleDisplay({ onSaveShuffle, className }: ShuffleDisplayProps) {
+export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDisplayProps) {
   const [currentShuffle, setCurrentShuffle] = useState<CardType[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null)
@@ -93,7 +93,7 @@ export function ShuffleDisplay({ onSaveShuffle, className }: ShuffleDisplayProps
     }
 
     loadLastShuffle()
-  }, [supabase]) // Remove currentShuffle from dependencies to avoid unnecessary reloads
+  }, [supabase, currentShuffle.length]) // Include currentShuffle.length in dependencies
 
   const handleShuffle = async () => {
     // Rate limiting - prevent rapid shuffling (min 500ms between shuffles)
@@ -137,7 +137,7 @@ export function ShuffleDisplay({ onSaveShuffle, className }: ShuffleDisplayProps
     setIsSaving(true)
     try {
       // Save the shuffle - this will now track in global_shuffles automatically
-      await onSaveShuffle(currentShuffle)
+      await onSaveShuffleAction(currentShuffle)
 
       // Force refresh global counter and navbar stats
       window.dispatchEvent(new CustomEvent('refresh-global-counter'))

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { ShuffleDisplay } from '@/components/shuffle-display'
 import { Card as CardType, UserStats } from '@/types'
@@ -34,7 +34,7 @@ export default function Home() {
     )
   )
 
-  const loadUserStats = async () => {
+  const loadUserStats = useCallback(async () => {
     if (isLoading) return // Prevent concurrent loads
 
     try {
@@ -157,14 +157,14 @@ export default function Home() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isLoading, supabase])
 
   // Load user stats on mount, but don't block rendering
   useEffect(() => {
     // Defer stats loading to improve initial load time
     const timeoutId = setTimeout(loadUserStats, 100)
     return () => clearTimeout(timeoutId)
-  }, [])
+  }, [loadUserStats])
 
   // Optimize Supabase subscriptions - consolidate them and use a more efficient approach
   useEffect(() => {
@@ -195,7 +195,7 @@ export default function Home() {
     return () => {
       channel.unsubscribe()
     }
-  }, [supabase])
+  }, [supabase, loadUserStats])
 
   const handleSaveShuffle = async (cards: CardType[]) => {
     try {
@@ -239,7 +239,7 @@ export default function Home() {
 
         <div className='space-y-8'>
           <div className='grid grid-cols-1 gap-6'>
-            <ShuffleDisplay onSaveShuffle={handleSaveShuffle} />
+            <ShuffleDisplay onSaveShuffleAction={handleSaveShuffle} />
           </div>
         </div>
       </div>
