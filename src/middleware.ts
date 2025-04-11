@@ -34,7 +34,9 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
   // If user is not signed in and the current path is not /auth
   // redirect the user to /auth
@@ -52,5 +54,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-} 
+  matcher: ['/((?!api|_next/static|_next/image|favicon.svg).*)'],
+}

@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
 export function NavbarWithStats() {
   const [stats, setStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
   const statsTimestampRef = useRef<number>(0)
 
@@ -67,6 +68,10 @@ export function NavbarWithStats() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+
+      // Set authentication state
+      setIsAuthenticated(!!user)
+
       if (!user) {
         setIsLoading(false)
         setStats(null)
@@ -113,6 +118,13 @@ export function NavbarWithStats() {
     // Only setup the subscription once
     if (subscriptionRef.current) return
 
+    // Listen for auth state changes
+    const authListener = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        loadUserStats()
+      }
+    })
+
     // Add listener for custom refresh event - this will sync with shuffle actions
     const handleRefreshEvent = () => {
       loadUserStats()
@@ -141,6 +153,7 @@ export function NavbarWithStats() {
       unsubscribe: () => {
         window.removeEventListener('refresh-global-counter', handleRefreshEvent)
         leaderboardSubscription.unsubscribe()
+        authListener.data.subscription.unsubscribe()
       },
     }
 
@@ -152,10 +165,16 @@ export function NavbarWithStats() {
     }
   }, [loadUserStats, supabase])
 
-  return <Navbar userStats={stats || undefined} />
+  return <Navbar userStats={stats || undefined} isAuthenticated={isAuthenticated} />
 }
 
-export function Navbar({ userStats }: { userStats?: UserStats | null }) {
+export function Navbar({
+  userStats,
+  isAuthenticated,
+}: {
+  userStats?: UserStats | null
+  isAuthenticated: boolean
+}) {
   const pathname = usePathname()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -187,29 +206,36 @@ export function Navbar({ userStats }: { userStats?: UserStats | null }) {
           <div className='flex-shrink-0 py-3 pl-2 hidden md:block'>
             <GlobalShuffleCounter variant='navbar' userStats={userStats || undefined} />
           </div>
-          <div
-            ref={scrollContainerRef}
-            className='w-full overflow-x-auto flex no-scrollbar'
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            <div className='flex w-max mx-auto'>
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  data-active={isPathActive(item.href)}
-                  className={cn(
-                    'whitespace-nowrap px-5 py-3 text-sm font-medium transition-all border-b-2',
-                    isPathActive(item.href)
-                      ? 'text-indigo-500 border-indigo-500'
-                      : 'text-gray-400 border-transparent hover:text-gray-200 hover:border-gray-700'
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
+          {isAuthenticated && (
+            <div
+              ref={scrollContainerRef}
+              className='w-full overflow-x-auto flex no-scrollbar'
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <div className='flex w-max mx-auto'>
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    data-active={isPathActive(item.href)}
+                    className={cn(
+                      'whitespace-nowrap px-5 py-3 text-sm font-medium transition-all border-b-2',
+                      isPathActive(item.href)
+                        ? 'text-indigo-500 border-indigo-500'
+                        : 'text-gray-400 border-transparent hover:text-gray-200 hover:border-gray-700'
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+          {!isAuthenticated && (
+            <div className='w-full flex justify-center items-center py-3 gap-4'>
+              <div className='text-indigo-400 font-medium text-lg'>unique shuffle</div>
+            </div>
+          )}
           <div className='flex-shrink-0 py-3 pr-2 hidden md:block'>
             <div className='w-[120px]'></div>
           </div>

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Unique Shuffle',
   description: 'Every shuffle is unique - track your card shuffling statistics!',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.svg',
   },
 }
 

@@ -121,7 +121,7 @@ export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuf
       <div className='flex items-center'>
         <div className='flex items-center gap-4'>
           <div className='flex items-center gap-1.5'>
-            <span className='text-gray-400 text-xs font-medium'>leaderboard shuffles:</span>
+            <span className='text-gray-400 text-xs font-medium'>global shuffles:</span>
             <span
               className={cn(
                 'font-bold text-sm transition-colors duration-300',
@@ -164,7 +164,7 @@ export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuf
 
       {/* Global stats */}
       <div className='flex items-center justify-between'>
-        <span className='text-slate-400'>Leaderboard shuffles:</span>
+        <span className='text-slate-400'>global shuffles:</span>
         <span
           className={`text-2xl font-bold transition-colors duration-300 ${
             isHighlighted ? 'text-green-400' : 'text-indigo-400'

@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Form state
   const [username, setUsername] = useState('')
@@ -104,10 +105,6 @@ export default function ProfilePage() {
         updateData.username = username
       }
 
-      if (email && email !== profile?.email) {
-        updateData.email = email
-      }
-
       if (password) {
         updateData.password = password
       }
@@ -148,6 +145,24 @@ export default function ProfilePage() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      // Redirect to login page after successful logout
+      window.location.href = '/auth'
+    } catch (err) {
+      console.error('Error logging out:', err)
+      setError(err instanceof Error ? err.message : 'Failed to log out')
+      setIsLoggingOut(false)
+    }
+  }
+
   useEffect(() => {
     fetchProfile()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,38 +171,50 @@ export default function ProfilePage() {
   if (isLoading) {
     return (
       <div className='min-h-screen flex items-center justify-center'>
-        <p>Loading profile...</p>
+        <p className='text-muted-foreground'>Loading profile...</p>
       </div>
     )
   }
 
   return (
-    <div className='min-h-screen p-4 md:p-8'>
+    <div className='min-h-screen p-4 md:p-8 bg-background/30'>
       <div className='max-w-xl mx-auto'>
-        <h1 className='text-3xl font-bold mb-6'>Edit Profile</h1>
+        <div className='flex justify-between items-center mb-6'>
+          <Button
+            variant='outline'
+            type='button'
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className='border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive'
+          >
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </Button>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Profile</CardTitle>
-            <CardDescription>Update your account information below</CardDescription>
+        <Card className='border border-border/30 shadow-lg bg-card/95 backdrop-blur-sm'>
+          <CardHeader className='pb-2'>
+            <CardTitle className='text-xl text-foreground'>Your Profile</CardTitle>
+            <CardDescription className='text-muted-foreground'>
+              Update your account information below
+            </CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className='space-y-4'>
+            <CardContent className='space-y-5'>
               {error && (
-                <div className='bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded'>
+                <div className='bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md'>
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className='bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded'>
+                <div className='bg-green-950 border border-green-800 text-green-400 px-4 py-3 rounded-md'>
                   {success}
                 </div>
               )}
 
               <div className='space-y-2'>
-                <label htmlFor='username' className='block text-sm font-medium'>
+                <label htmlFor='username' className='block text-sm font-medium text-foreground'>
                   Username
                 </label>
                 <input
@@ -195,31 +222,29 @@ export default function ProfilePage() {
                   type='text'
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                  className='w-full px-3 py-2 bg-background/40 border border-input/30 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/70 focus:border-primary/70 text-foreground placeholder:text-muted-foreground/70 transition-colors'
                   placeholder='Your username'
                 />
-                <p className='text-sm text-gray-500'>
+                <p className='text-xs text-muted-foreground'>
                   Username must be between 3-20 characters and can only contain letters, numbers,
                   and underscores.
                 </p>
               </div>
 
               <div className='space-y-2'>
-                <label htmlFor='email' className='block text-sm font-medium'>
+                <label htmlFor='email' className='block text-sm font-medium text-foreground'>
                   Email Address
                 </label>
-                <input
-                  id='email'
-                  type='email'
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500'
-                  placeholder='your-email@example.com'
-                />
+                <div className='w-full px-3 py-2 bg-background/20 border border-input/20 rounded-md text-foreground/90 flex items-center'>
+                  {email}
+                  <span className='ml-auto text-xs text-muted-foreground italic'>
+                    Cannot be changed
+                  </span>
+                </div>
               </div>
 
               <div className='space-y-2'>
-                <label htmlFor='password' className='block text-sm font-medium'>
+                <label htmlFor='password' className='block text-sm font-medium text-foreground'>
                   New Password
                 </label>
                 <input
@@ -227,13 +252,16 @@ export default function ProfilePage() {
                   type='password'
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                  className='w-full px-3 py-2 bg-background/40 border border-input/30 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/70 focus:border-primary/70 text-foreground placeholder:text-muted-foreground/70 transition-colors'
                   placeholder='Leave blank to keep current password'
                 />
               </div>
 
               <div className='space-y-2'>
-                <label htmlFor='confirmPassword' className='block text-sm font-medium'>
+                <label
+                  htmlFor='confirmPassword'
+                  className='block text-sm font-medium text-foreground'
+                >
                   Confirm New Password
                 </label>
                 <input
@@ -241,17 +269,26 @@ export default function ProfilePage() {
                   type='password'
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                  className='w-full px-3 py-2 bg-background/40 border border-input/30 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/70 focus:border-primary/70 text-foreground placeholder:text-muted-foreground/70 transition-colors'
                   placeholder='Confirm new password'
                 />
               </div>
             </CardContent>
 
-            <CardFooter className='flex justify-between'>
-              <Button variant='outline' type='button' onClick={() => (window.location.href = '/')}>
+            <CardFooter className='flex justify-between pt-2 pb-4 px-6'>
+              <Button
+                variant='outline'
+                type='button'
+                onClick={() => (window.location.href = '/')}
+                className='border-border/50 hover:bg-background/70'
+              >
                 Cancel
               </Button>
-              <Button type='submit' disabled={isSubmitting}>
+              <Button
+                type='submit'
+                disabled={isSubmitting}
+                className='bg-primary hover:bg-primary/90 text-primary-foreground'
+              >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardFooter>
