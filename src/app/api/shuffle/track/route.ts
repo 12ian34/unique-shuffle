@@ -55,6 +55,13 @@ export async function POST(request: Request) {
       console.log('Current global shuffle count after insertion:', currentCount)
     }
 
+    // Include count in the response for easier debugging
+    const responseData = {
+      success: true,
+      data,
+      count: countError ? null : currentCount,
+    }
+
     // For logged-in users, check for achievements on EVERY shuffle, not just saved ones
     if (userId) {
       try {
@@ -251,7 +258,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error('Unexpected error tracking shuffle:', error)
     return NextResponse.json(

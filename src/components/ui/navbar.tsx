@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { GlobalShuffleCounter } from '@/components/global-shuffle-counter'
-import { createBrowserClient } from '@supabase/ssr'
+import { createDisabledRealtimeClient } from '@/lib/supabase-browser'
 import { Database } from '@/types/supabase'
 import { UserStats, Card as CardType } from '@/types'
+import { getUserStats, subscribeToStats, fetchStats, initializeStats } from '@/lib/stats-store'
 
 interface NavItem {
   label: string
@@ -37,144 +38,86 @@ const navItems: NavItem[] = [
   },
 ]
 
+// Module-level flag to prevent concurrent loads
+let isStatsLoadInProgress = false
+// Module-level minimum time between refreshes (30 seconds)
+const MIN_NAVBAR_REFRESH_INTERVAL = 30000
+// When was the last refresh
+let lastNavbarRefreshTime = 0
+
 export function NavbarWithStats() {
+  // Use null as initial value until we get real data from the store
   const [stats, setStats] = useState<UserStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
-  const statsTimestampRef = useRef<number>(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Use a shared Supabase client
-  const supabase = useMemo(
-    () =>
-      createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      ),
-    []
-  )
-
-  const loadUserStats = useCallback(async () => {
-    try {
-      // Don't reload stats more than once per second to prevent performance issues
-      const now = Date.now()
-      if (now - statsTimestampRef.current < 2000 && !isLoading) {
-        return
-      }
-      statsTimestampRef.current = now
-
+  // First, initialize the stats store on mount (client-side only)
+  useEffect(() => {
+    const initialize = async () => {
       setIsLoading(true)
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      // Set authentication state
-      setIsAuthenticated(!!user)
-
-      if (!user) {
+      try {
+        // Initialize the store (this is now safe on client-side)
+        await initializeStats()
+        // Get initial stats from the store
+        const initialStats = getUserStats()
+        setStats(initialStats)
+        setIsAuthenticated(!!initialStats)
+        setIsInitialized(true)
+      } finally {
         setIsLoading(false)
-        setStats(null)
-        return
       }
+    }
 
-      // Just get stats from leaderboard table without complex calculation
-      const { data: leaderboardData, error: leaderboardError } = await supabase
-        .from('leaderboard')
-        .select('total_shuffles, shuffle_streak, achievements_count')
-        .eq('user_id', user.id)
-        .single()
+    initialize()
+  }, [])
 
-      if (leaderboardError) {
-        console.log('No leaderboard data found for user')
-        // If no data, just set zeros (will be created by save API later)
-        setStats({
-          total_shuffles: 0,
-          shuffle_streak: 0,
-          achievements_count: 0,
-          most_common_cards: [],
-        })
-      } else {
-        // Create minimal stats object for navbar
-        const newStats: UserStats = {
-          total_shuffles: leaderboardData.total_shuffles || 0,
-          shuffle_streak: leaderboardData.shuffle_streak || 0,
-          achievements_count: leaderboardData.achievements_count || 0,
-          most_common_cards: [],
-        }
+  // Subscribe to the stats store for updates after initialization
+  useEffect(() => {
+    // Skip if not initialized yet
+    if (!isInitialized) return
 
-        setStats(newStats)
-      }
-    } catch (error) {
-      console.error('Failed to load user stats for navbar:', error)
+    // Function to update from the store
+    const handleStatsUpdate = () => {
+      const newStats = getUserStats()
+      setStats(newStats)
+      setIsAuthenticated(!!newStats)
+    }
+
+    // Subscribe to future updates
+    const unsubscribe = subscribeToStats(handleStatsUpdate)
+
+    // Unsubscribe on unmount
+    return unsubscribe
+  }, [isInitialized])
+
+  // Handle manual refresh
+  const handleManualRefresh = async () => {
+    setIsLoading(true)
+    try {
+      await fetchStats(true)
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, isLoading])
+  }
 
-  useEffect(() => {
-    // Initial load
-    loadUserStats()
-
-    // Only setup the subscription once
-    if (subscriptionRef.current) return
-
-    // Listen for auth state changes
-    const authListener = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        loadUserStats()
-      }
-    })
-
-    // Add listener for custom refresh event - this will sync with shuffle actions
-    const handleRefreshEvent = () => {
-      loadUserStats()
-    }
-    window.addEventListener('refresh-global-counter', handleRefreshEvent)
-
-    // Subscribe to leaderboard changes directly instead of global_shuffles
-    // This will only trigger when the actual stats change
-    const leaderboardSubscription = supabase
-      .channel('navbar-user-stats')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen for all events
-          schema: 'public',
-          table: 'leaderboard',
-        },
-        (payload) => {
-          loadUserStats()
-        }
-      )
-      .subscribe()
-
-    // Store subscription reference for cleanup
-    subscriptionRef.current = {
-      unsubscribe: () => {
-        window.removeEventListener('refresh-global-counter', handleRefreshEvent)
-        leaderboardSubscription.unsubscribe()
-        authListener.data.subscription.unsubscribe()
-      },
-    }
-
-    return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
-      }
-    }
-  }, [loadUserStats, supabase])
-
-  return <Navbar userStats={stats || undefined} isAuthenticated={isAuthenticated} />
+  return (
+    <Navbar
+      userStats={stats || undefined}
+      isAuthenticated={isAuthenticated}
+      onRefreshAction={handleManualRefresh}
+    />
+  )
 }
 
 export function Navbar({
   userStats,
   isAuthenticated,
+  onRefreshAction,
 }: {
   userStats?: UserStats | null
   isAuthenticated: boolean
+  onRefreshAction: () => Promise<void>
 }) {
   const pathname = usePathname()
   const scrollContainerRef = useRef<HTMLDivElement>(null)

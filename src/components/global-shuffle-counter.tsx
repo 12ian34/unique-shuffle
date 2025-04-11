@@ -1,121 +1,146 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import { Database } from '@/types/supabase'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { UserStats } from '@/types'
+import {
+  getUserStats,
+  subscribeToStats,
+  fetchStats,
+  initializeStats,
+  getGlobalCount,
+} from '@/lib/stats-store'
 
 interface GlobalShuffleCounterProps {
   variant?: 'navbar' | 'card'
   userStats?: UserStats
+  onUserStatsUpdated?: (stats: UserStats) => void
 }
 
-export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuffleCounterProps) {
+export function GlobalShuffleCounter({
+  variant = 'card',
+  userStats,
+  onUserStatsUpdated,
+}: GlobalShuffleCounterProps) {
+  // Use state only for UI rendering
   const [totalShuffles, setTotalShuffles] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isHighlighted, setIsHighlighted] = useState(false)
-  const hasInitializedRef = useRef(false)
-  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
-  const lastFetchTimeRef = useRef<number>(0)
+  const [userShuffles, setUserShuffles] = useState<UserStats | undefined>(userStats)
+  const [isLoading, setIsLoading] = useState<{ global: boolean; user: boolean }>({
+    global: true,
+    user: !!userStats,
+  })
+  const [isHighlighted, setIsHighlighted] = useState<{ global: boolean; user: boolean }>({
+    global: false,
+    user: false,
+  })
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  // Use useMemo to ensure the supabase client isn't recreated on each render
-  const supabase = useMemo(
-    () =>
-      createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      ),
-    []
-  )
-
-  // Function to briefly show a highlight effect
-  const highlightUpdate = useCallback(() => {
-    setIsHighlighted(true)
+  // Function to briefly show a highlight effect for either counter
+  const highlightUpdate = useCallback((counter: 'global' | 'user') => {
+    setIsHighlighted((prev) => ({ ...prev, [counter]: true }))
     setTimeout(() => {
-      setIsHighlighted(false)
+      setIsHighlighted((prev) => ({ ...prev, [counter]: false }))
     }, 1000)
   }, [])
 
-  const fetchShuffleCounts = useCallback(
-    async (forceReset = false) => {
-      // Add rate limiting to prevent excessive API calls
-      const now = Date.now()
-      if (!forceReset && now - lastFetchTimeRef.current < 2000) {
-        return
-      }
-
-      // Skip duplicate fetches if we're already loading
-      if (isLoading && !forceReset) return
-
-      try {
-        lastFetchTimeRef.current = now
-        setIsLoading(true)
-
-        // Use a simple fetch with a proper timestamp parameter (not "_")
-        // Using "t" as parameter name to avoid conflicts with other parameter names
-        const response = await fetch(`/api/shuffle/count?t=${now}`, {
-          cache: 'no-store',
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch shuffle count')
-        }
-
-        const data = await response.json()
-
-        if (data && typeof data.total === 'number') {
-          // Force highlight when it's an explicit refresh or count increases
-          if (forceReset || (data.total > totalShuffles && totalShuffles > 0)) {
-            highlightUpdate()
-          }
-          setTotalShuffles(data.total)
-        }
-      } catch (error) {
-        console.error('Failed to fetch shuffle counts:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [totalShuffles, highlightUpdate, isLoading]
-  )
-
-  // Setup subscriptions once on mount
+  // Initialize the store on mount
   useEffect(() => {
-    // Only setup once
-    if (subscriptionRef.current) return
+    const initialize = async () => {
+      try {
+        // Initialize stats store
+        await initializeStats()
 
-    // Initial data fetch
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true
-      fetchShuffleCounts(true)
-    }
+        // Get initial counts from store - get global count separately from user stats
+        const globalCount = getGlobalCount()
+        const userStats = getUserStats()
 
-    // Add listener for custom refresh event
-    const handleRefreshEvent = () => {
-      fetchShuffleCounts(true)
-    }
-    window.addEventListener('refresh-global-counter', handleRefreshEvent)
+        setTotalShuffles(globalCount)
+        if (userStats) {
+          setUserShuffles(userStats)
+        }
 
-    // Periodic refresh - use a longer interval to reduce server load
-    const intervalId = setInterval(() => fetchShuffleCounts(false), 60000) // Refresh every 60 seconds
-
-    // Store subscription reference for cleanup
-    subscriptionRef.current = {
-      unsubscribe: () => {
-        window.removeEventListener('refresh-global-counter', handleRefreshEvent)
-        clearInterval(intervalId)
-      },
-    }
-
-    // Cleanup on component unmount
-    return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
-        subscriptionRef.current = null
+        // Set initialized flag
+        setIsInitialized(true)
+        setIsLoading({ global: false, user: false })
+      } catch (error) {
+        console.error('Failed to initialize GlobalShuffleCounter:', error)
+        setIsLoading({ global: false, user: false })
       }
     }
-  }, [fetchShuffleCounts])
+
+    initialize()
+  }, [])
+
+  // Update our counts from the store
+  const updateFromStore = useCallback(() => {
+    // Get latest counts from store - use separate functions for global and user stats
+    const globalCount = getGlobalCount()
+    const stats = getUserStats()
+
+    // Update global count if different
+    if (globalCount !== totalShuffles) {
+      setTotalShuffles(globalCount)
+      highlightUpdate('global')
+    }
+
+    // Update user stats if different
+    if (
+      stats &&
+      (!userShuffles ||
+        stats.total_shuffles !== userShuffles.total_shuffles ||
+        stats.shuffle_streak !== userShuffles.shuffle_streak)
+    ) {
+      setUserShuffles(stats)
+      highlightUpdate('user')
+
+      // Call callback if provided
+      if (onUserStatsUpdated) {
+        onUserStatsUpdated(stats)
+      }
+    }
+  }, [totalShuffles, userShuffles, highlightUpdate, onUserStatsUpdated])
+
+  // Subscribe to store updates
+  useEffect(() => {
+    if (!isInitialized) return
+
+    // Update from store on mount
+    updateFromStore()
+
+    // Subscribe to future updates
+    const unsubscribe = subscribeToStats(updateFromStore)
+
+    // Unsubscribe on unmount
+    return unsubscribe
+  }, [updateFromStore, isInitialized])
+
+  // Handle when userStats prop changes (from parent)
+  useEffect(() => {
+    if (userStats) {
+      setUserShuffles(userStats)
+    }
+  }, [userStats])
+
+  // For click-to-refresh functionality
+  const handleManualRefresh = async () => {
+    setIsLoading({ global: true, user: true })
+    try {
+      // Force a refresh of all stats
+      await fetchStats(true)
+
+      // After fetching, ensure our component is using the right values
+      const globalShuffles = getGlobalCount()
+      const userStatsFromStore = getUserStats()
+
+      // Update our component state with the fresh values
+      setTotalShuffles(globalShuffles)
+      if (userStatsFromStore) {
+        setUserShuffles(userStatsFromStore)
+      }
+    } finally {
+      setIsLoading({ global: false, user: false })
+    }
+  }
 
   if (variant === 'navbar') {
     return (
@@ -126,30 +151,38 @@ export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuf
             <span
               className={cn(
                 'font-bold text-sm transition-colors duration-300',
-                isHighlighted ? 'text-green-400' : 'text-indigo-400'
+                isHighlighted.global ? 'text-green-400' : 'text-indigo-400'
               )}
-              onClick={() => fetchShuffleCounts(true)}
+              onClick={handleManualRefresh}
               style={{ cursor: 'pointer' }}
-              title='Click to refresh count'
+              title='Click to refresh counts'
             >
-              {isLoading ? '...' : totalShuffles.toLocaleString()}
+              {isLoading.global ? '...' : totalShuffles.toLocaleString()}
             </span>
           </div>
 
-          {userStats && (
+          {userShuffles && (
             <>
               <div className='flex items-center gap-1.5'>
                 <span className='text-gray-400 text-xs font-medium'>your shuffles:</span>
-                <span className='font-bold text-sm text-indigo-400'>
-                  {userStats.total_shuffles.toLocaleString()}
+                <span
+                  className={cn(
+                    'font-bold text-sm transition-colors duration-300',
+                    isHighlighted.user ? 'text-green-400' : 'text-indigo-400'
+                  )}
+                  onClick={handleManualRefresh}
+                  style={{ cursor: 'pointer' }}
+                  title='Click to refresh counts'
+                >
+                  {isLoading.user ? '...' : userShuffles.total_shuffles.toLocaleString()}
                 </span>
               </div>
 
               <div className='flex items-center gap-1.5'>
                 <span className='text-gray-400 text-xs font-medium'>streak:</span>
                 <span className='font-bold text-sm text-indigo-400'>
-                  {userStats.shuffle_streak.toLocaleString()}{' '}
-                  {userStats.shuffle_streak === 1 ? 'day' : 'days'}
+                  {userShuffles.shuffle_streak.toLocaleString()}{' '}
+                  {userShuffles.shuffle_streak === 1 ? 'day' : 'days'}
                 </span>
               </div>
             </>
@@ -168,31 +201,38 @@ export function GlobalShuffleCounter({ variant = 'card', userStats }: GlobalShuf
         <span className='text-slate-400'>global shuffles:</span>
         <span
           className={`text-2xl font-bold transition-colors duration-300 ${
-            isHighlighted ? 'text-green-400' : 'text-indigo-400'
+            isHighlighted.global ? 'text-green-400' : 'text-indigo-400'
           }`}
-          onClick={() => fetchShuffleCounts(true)}
+          onClick={handleManualRefresh}
           style={{ cursor: 'pointer' }}
-          title='Click to refresh count'
+          title='Click to refresh counts'
         >
-          {isLoading ? '...' : totalShuffles.toLocaleString()}
+          {isLoading.global ? '...' : totalShuffles.toLocaleString()}
         </span>
       </div>
 
       {/* User stats */}
-      {userStats && (
+      {userShuffles && (
         <div className='pt-4 border-t border-slate-700/50 space-y-3'>
           <div className='flex items-center justify-between'>
             <span className='text-slate-400'>Your shuffles:</span>
-            <span className='text-2xl font-bold text-indigo-400'>
-              {userStats.total_shuffles.toLocaleString()}
+            <span
+              className={`text-2xl font-bold transition-colors duration-300 ${
+                isHighlighted.user ? 'text-green-400' : 'text-indigo-400'
+              }`}
+              onClick={handleManualRefresh}
+              style={{ cursor: 'pointer' }}
+              title='Click to refresh counts'
+            >
+              {isLoading.user ? '...' : userShuffles.total_shuffles.toLocaleString()}
             </span>
           </div>
 
           <div className='flex items-center justify-between'>
             <span className='text-slate-400'>Your streak:</span>
             <span className='text-2xl font-bold text-indigo-400'>
-              {userStats.shuffle_streak.toLocaleString()}{' '}
-              {userStats.shuffle_streak === 1 ? 'day' : 'days'}
+              {userShuffles.shuffle_streak.toLocaleString()}{' '}
+              {userShuffles.shuffle_streak === 1 ? 'day' : 'days'}
             </span>
           </div>
         </div>

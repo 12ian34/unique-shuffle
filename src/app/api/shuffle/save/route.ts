@@ -62,6 +62,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: shuffleError.message }, { status: 500 })
     }
 
+    console.log('Successfully saved shuffle to global_shuffles table, id:', shuffleData[0]?.id)
+
     // Check for pattern-based achievements in the current shuffle
     const patternBasedAchievements = []
 

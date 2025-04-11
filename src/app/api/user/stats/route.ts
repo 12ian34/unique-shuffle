@@ -1,178 +1,302 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
+import { createSupabaseServer } from '@/lib/supabase-server'
 import { Card as CardType, UserStats, Shuffle } from '@/types'
 import { generateUsername } from '@/utils/username-generator'
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId')
+// Cache user stats to prevent excessive database queries
+const statsCache = new Map<string, { data: UserStats; timestamp: number }>()
+const CACHE_DURATION = 60000 // 60 seconds (1 minute)
 
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+// Track most recent API call by user to enforce limits on API calls
+const lastUserRequests = new Map<string, number>()
+const MIN_REQUEST_INTERVAL = 5000 // 5 seconds between non-forced requests
+
+// Store currently running database queries as regular promises of data
+// NOT as response promises - this is what was causing the stream errors
+const pendingDataQueries = new Map<
+  string,
+  {
+    promise: Promise<UserStats>
+    timestamp: number
   }
+>()
+const REQUEST_WINDOW = 3000 // 3 second window for deduplication
 
-  const supabaseAdmin = createSupabaseAdmin()
-
+export async function GET(request: Request) {
   try {
-    // Get all user shuffles from database, regardless of saved status
-    const { data: shuffles, error: shufflesError } = await supabaseAdmin
+    const supabase = await createSupabaseServer()
+    const supabaseAdmin = createSupabaseAdmin()
+
+    // Get current user
+    const { data, error: userError } = await supabase.auth.getUser()
+    if (userError || !data.user) {
+      console.log('No authenticated user found for stats')
+      return NextResponse.json(
+        { stats: null, message: 'No authenticated user' },
+        { status: 200 } // Return 200 even for no user to prevent errors
+      )
+    }
+
+    const userId = data.user.id
+
+    // Get current time for logging and timing
+    const now = Date.now()
+    const url = new URL(request.url)
+    const timestamp = url.searchParams.get('timestamp')
+    const forceFresh = !!timestamp
+
+    // Apply rate limiting unless we're forcing a refresh
+    if (!forceFresh && lastUserRequests.has(userId)) {
+      const lastRequestTime = lastUserRequests.get(userId)!
+
+      // If a request was made too recently, return cached data or error
+      if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+        console.log(
+          `Rate limiting request for user ${userId} - too frequent (${
+            now - lastRequestTime
+          }ms since last request)`
+        )
+
+        // If we have cached data, return it instead of an error
+        if (statsCache.has(userId)) {
+          const cached = statsCache.get(userId)!
+          return NextResponse.json({
+            stats: cached.data,
+            fromCache: true,
+            rateLimited: true,
+            lastUpdate: cached.timestamp,
+          })
+        }
+
+        // Otherwise return a 429 (too many requests)
+        return NextResponse.json(
+          {
+            error: 'Too many requests',
+            retryAfter: MIN_REQUEST_INTERVAL - (now - lastRequestTime),
+          },
+          { status: 429 }
+        )
+      }
+    }
+
+    // Update the last request time for this user - do this for all requests
+    lastUserRequests.set(userId, now)
+
+    // Log request for debugging
+    console.log(
+      `Received stats request for user ${userId} at ${now}${
+        timestamp ? ` with timestamp ${timestamp}` : ''
+      }`
+    )
+
+    // Check cache first (unless force refresh is set)
+    if (!forceFresh && statsCache.has(userId)) {
+      const cached = statsCache.get(userId)!
+      if (now - cached.timestamp < CACHE_DURATION) {
+        console.log(
+          `Using cached stats for user ${userId} from ${cached.timestamp} (${
+            now - cached.timestamp
+          }ms old)`
+        )
+        return NextResponse.json({
+          stats: cached.data,
+          fromCache: true,
+          lastUpdate: cached.timestamp,
+        })
+      }
+    }
+
+    // Check if we have a pending query for this user
+    let userStatsPromise: Promise<UserStats>
+
+    if (pendingDataQueries.has(userId)) {
+      const pendingQuery = pendingDataQueries.get(userId)!
+
+      // If there's a query in progress that started within the window, reuse that promise
+      if (now - pendingQuery.timestamp < REQUEST_WINDOW) {
+        console.log(
+          `Reusing in-flight query for user ${userId} from ${pendingQuery.timestamp} (${
+            now - pendingQuery.timestamp
+          }ms ago)`
+        )
+        userStatsPromise = pendingQuery.promise
+      } else {
+        // Window expired, start a new query
+        userStatsPromise = fetchUserStats(userId, forceFresh, supabaseAdmin, now)
+        pendingDataQueries.set(userId, { promise: userStatsPromise, timestamp: now })
+      }
+    } else {
+      // No pending query, start a new one
+      userStatsPromise = fetchUserStats(userId, forceFresh, supabaseAdmin, now)
+      pendingDataQueries.set(userId, { promise: userStatsPromise, timestamp: now })
+    }
+
+    try {
+      // Await the data separately from the response generation
+      const stats = await userStatsPromise
+
+      // Then create a fresh response with the data
+      return NextResponse.json({ stats })
+    } catch (error) {
+      console.error('Error processing user stats:', error)
+      return NextResponse.json(
+        { error: 'Failed to load user stats', message: (error as Error).message },
+        { status: 500 }
+      )
+    }
+  } catch (error) {
+    console.error('Unexpected error fetching user stats:', error)
+    return NextResponse.json(
+      { stats: null, error: 'An unexpected error occurred' },
+      { status: 500 }
+    )
+  }
+}
+
+// Separate function to actually fetch the data (returns a UserStats object, not a Response)
+async function fetchUserStats(
+  userId: string,
+  forceFresh: boolean,
+  supabaseAdmin: any,
+  timestamp: number
+): Promise<UserStats> {
+  try {
+    // Log the actual database query
+    console.log(`Performing database query for user ${userId} at ${timestamp}`)
+
+    // Get direct count of user's shuffles from global_shuffles table
+    const { count: directShufflesCount, error: directCountError } = await supabaseAdmin
       .from('global_shuffles')
-      .select('cards, created_at')
+      .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
-      // Don't filter by is_saved - count all shuffles for stats
-      .order('created_at', { ascending: false })
 
-    if (shufflesError) {
-      console.error('Error fetching shuffles:', shufflesError)
-      return NextResponse.json({ error: shufflesError.message }, { status: 400 })
+    if (directCountError) {
+      console.error('Error getting direct shuffle count:', directCountError)
+      throw new Error(directCountError.message)
+    } else {
+      console.log(`Direct database count for user ${userId}: ${directShufflesCount} shuffles`)
     }
 
-    if (!shuffles || shuffles.length === 0) {
-      return NextResponse.json({
-        total_shuffles: 0,
-        shuffle_streak: 0,
-        achievements_count: 0,
-        most_common_cards: [],
-      })
-    }
-
-    // Directly count card occurrences
-    const cardCounts: Record<string, { card: CardType; count: number }> = {}
-
-    shuffles.forEach((shuffle) => {
-      if (!shuffle.cards || !Array.isArray(shuffle.cards)) {
-        console.warn('Invalid shuffle data:', shuffle)
-        return
-      }
-
-      shuffle.cards.forEach((card) => {
-        if (!card || !card.suit || !card.value) return
-
-        const key = `${card.value}-${card.suit}`
-        if (!cardCounts[key]) {
-          cardCounts[key] = { card, count: 0 }
-        }
-        cardCounts[key].count++
-      })
-    })
-
-    // Calculate shuffle streak
-    let streak = 0
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    // Group shuffles by date (using a Map to preserve insertion order)
-    const shufflesByDate = new Map<string, boolean>()
-
-    shuffles.forEach((shuffle) => {
-      if (!shuffle.created_at) return
-
-      const shuffleDate = new Date(shuffle.created_at)
-      shuffleDate.setHours(0, 0, 0, 0)
-
-      // Store date as string key in format YYYY-MM-DD
-      const dateStr = shuffleDate.toISOString().split('T')[0]
-      shufflesByDate.set(dateStr, true)
-    })
-
-    // Get dates as array sorted in descending order (most recent first)
-    const shuffleDates = Array.from(shufflesByDate.keys()).sort().reverse()
-
-    if (shuffleDates.length > 0) {
-      streak = 1 // Start with 1 for the most recent day
-
-      const todayStr = today.toISOString().split('T')[0]
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayStr = yesterday.toISOString().split('T')[0]
-
-      // If most recent shuffle is not today or yesterday, streak is just 1
-      if (shuffleDates[0] === todayStr || shuffleDates[0] === yesterdayStr) {
-        // Check for consecutive days working backwards
-        for (let i = 1; i < shuffleDates.length; i++) {
-          const currentDate = new Date(shuffleDates[i - 1])
-          currentDate.setDate(currentDate.getDate() - 1)
-          const expectedPrevDateStr = currentDate.toISOString().split('T')[0]
-
-          if (shuffleDates[i] === expectedPrevDateStr) {
-            streak++
-          } else {
-            break
-          }
-        }
-      }
-    }
-
-    // Get achievements count from leaderboard
+    // Try to get stats from leaderboard first (faster)
     const { data: leaderboardData, error: leaderboardError } = await supabaseAdmin
       .from('leaderboard')
-      .select('achievements_count, shuffle_streak')
+      .select('total_shuffles, shuffle_streak, achievements_count')
       .eq('user_id', userId)
       .single()
 
-    // Default to 0 if there's an error or no data found
-    let achievementsCount = 0
     if (!leaderboardError && leaderboardData) {
-      achievementsCount = leaderboardData.achievements_count || 0
-    }
+      console.log(`Leaderboard data for user ${userId}: ${leaderboardData.total_shuffles} shuffles`)
 
-    // Create and return the stats object
-    const stats: UserStats = {
-      total_shuffles: shuffles.length,
-      shuffle_streak: streak,
-      achievements_count: achievementsCount,
-      most_common_cards: Object.values(cardCounts).sort((a, b) => b.count - a.count),
-    }
+      // If we're forcing a fresh count or counts are inconsistent, update leaderboard with direct count
+      if (
+        (forceFresh ||
+          (directShufflesCount !== null &&
+            leaderboardData.total_shuffles !== directShufflesCount)) &&
+        directShufflesCount !== null
+      ) {
+        // Only log update when the counts actually differ
+        if (leaderboardData.total_shuffles !== directShufflesCount) {
+          console.log(
+            `Updating leaderboard with direct count: ${directShufflesCount} (was: ${leaderboardData.total_shuffles})`
+          )
+        }
 
-    // Update the leaderboard with the calculated streak
-    try {
-      if (!leaderboardError && leaderboardData) {
-        // Only update if the streak has changed
-        if (leaderboardData.shuffle_streak !== streak) {
-          await supabaseAdmin
-            .from('leaderboard')
-            .update({
-              shuffle_streak: streak,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
+        // Update leaderboard with accurate count
+        const { error: updateError } = await supabaseAdmin
+          .from('leaderboard')
+          .update({
+            total_shuffles: directShufflesCount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
 
-          // Also update achievements since streak changed
-          try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-            const achievementResponse = await fetch(`${baseUrl}/api/achievements`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ userId }),
-            })
-
-            if (!achievementResponse.ok) {
-              console.error('Achievement update failed with status:', achievementResponse.status)
-            } else {
-              const achievementData = await achievementResponse.json()
-              console.log(
-                'Achievements updated after streak change:',
-                achievementData.count,
-                'achievements'
-              )
-            }
-          } catch (achievementError) {
-            // Log but don't fail the request
-            console.error('Failed to update achievements after streak change:', achievementError)
-          }
+        if (updateError) {
+          console.error('Failed to update leaderboard with accurate count:', updateError)
+        } else {
+          // Update our reference to reflect the direct count
+          leaderboardData.total_shuffles = directShufflesCount
         }
       }
-    } catch (updateError) {
-      console.error('Error updating streak in leaderboard:', updateError)
-      // Don't fail the request if update fails
+
+      // Get most common cards as a separate query
+      const { data: shuffles } = await supabaseAdmin
+        .from('global_shuffles')
+        .select('cards')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20) // Limit to recent shuffles for optimization
+
+      // Calculate most common cards
+      const cardCounts = new Map<string, { card: CardType; count: number }>()
+
+      if (shuffles) {
+        shuffles.forEach((shuffle: { cards: any[] }) => {
+          if (!shuffle.cards || !Array.isArray(shuffle.cards)) return
+
+          shuffle.cards.forEach((card: any) => {
+            if (!card || !card.suit || !card.value) return
+
+            const key = `${card.value}-${card.suit}`
+            if (!cardCounts.has(key)) {
+              cardCounts.set(key, { card, count: 0 })
+            }
+
+            const entry = cardCounts.get(key)!
+            entry.count++
+            cardCounts.set(key, entry)
+          })
+        })
+      }
+
+      // Get top 10 cards
+      const mostCommonCards = Array.from(cardCounts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+
+      // Create stats from leaderboard data
+      const stats: UserStats = {
+        total_shuffles: leaderboardData.total_shuffles || 0,
+        shuffle_streak: leaderboardData.shuffle_streak || 0,
+        achievements_count: leaderboardData.achievements_count || 0,
+        most_common_cards: mostCommonCards,
+      }
+
+      console.log(`User stats for ${userId}: total_shuffles=${stats.total_shuffles}`)
+
+      // Cache the result
+      statsCache.set(userId, { data: stats, timestamp })
+
+      // Clean up the pending promise
+      setTimeout(() => {
+        const currentPending = pendingDataQueries.get(userId)
+        if (currentPending && currentPending.timestamp <= timestamp) {
+          pendingDataQueries.delete(userId)
+        }
+      }, REQUEST_WINDOW)
+
+      return stats
     }
 
-    return NextResponse.json(stats)
+    // Fallback to default stats if no data available
+    const emptyStats: UserStats = {
+      total_shuffles: 0,
+      shuffle_streak: 0,
+      achievements_count: 0,
+      most_common_cards: [],
+    }
+
+    return emptyStats
   } catch (error) {
-    console.error('Unexpected error fetching user stats:', error)
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+    // Make sure to clean up the pending query on error
+    setTimeout(() => {
+      const currentPending = pendingDataQueries.get(userId)
+      if (currentPending && currentPending.timestamp <= timestamp) {
+        pendingDataQueries.delete(userId)
+      }
+    }, 0)
+
+    throw error
   }
 }
 
@@ -186,6 +310,9 @@ export async function POST(request: Request) {
   const supabaseAdmin = createSupabaseAdmin()
 
   try {
+    // Clear the cache for this user to ensure fresh data on next GET
+    statsCache.delete(userId)
+
     // Get user shuffles count from database - count all shuffles, not just saved
     const { count: shufflesCount, error: shufflesError } = await supabaseAdmin
       .from('global_shuffles')
@@ -197,6 +324,8 @@ export async function POST(request: Request) {
       console.error('Error counting shuffles:', shufflesError)
       return NextResponse.json({ error: shufflesError.message }, { status: 400 })
     }
+
+    console.log(`POST /api/user/stats: User ${userId} has ${shufflesCount} total shuffles`)
 
     // Get current leaderboard data
     const { data: leaderboardData, error: leaderboardError } = await supabaseAdmin
@@ -225,7 +354,13 @@ export async function POST(request: Request) {
 
     // If leaderboard entry exists, update it
     if (leaderboardData) {
-      const { error: updateError } = await supabaseAdmin
+      console.log(
+        `Updating leaderboard for user ${userId}: ${
+          leaderboardData.total_shuffles || 0
+        } -> ${shufflesCount} shuffles`
+      )
+
+      const { data: updateData, error: updateError } = await supabaseAdmin
         .from('leaderboard')
         .update({
           total_shuffles: shufflesCount,
@@ -233,6 +368,7 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
+        .select()
 
       if (updateError) {
         console.error('Error updating leaderboard:', updateError)
@@ -251,16 +387,23 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: userError.message }, { status: 400 })
       }
 
-      const { error: insertError } = await supabaseAdmin.from('leaderboard').insert([
-        {
-          user_id: userId,
-          username: userData.email?.split('@')[0] || generateUsername(userId),
-          total_shuffles: shufflesCount,
-          shuffle_streak: streak,
-          achievements_count: 0,
-          updated_at: new Date().toISOString(),
-        },
-      ])
+      console.log(
+        `Creating new leaderboard entry for user ${userId} with ${shufflesCount} shuffles`
+      )
+
+      const { data: insertData, error: insertError } = await supabaseAdmin
+        .from('leaderboard')
+        .insert([
+          {
+            user_id: userId,
+            username: userData.email?.split('@')[0] || generateUsername(userId),
+            total_shuffles: shufflesCount,
+            shuffle_streak: streak,
+            achievements_count: 0,
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select()
 
       if (insertError) {
         console.error('Error creating leaderboard entry:', insertError)

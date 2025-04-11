@@ -7,33 +7,19 @@ export async function GET(request: Request) {
   const supabaseAdmin = createSupabaseAdmin()
 
   try {
-    console.log("API: Fetching leaderboard users' shuffle count")
+    console.log('API: Fetching global shuffles count')
 
-    // Get all users from the leaderboard
-    const { data: leaderboardUsers, error: leaderboardError } = await supabaseAdmin
-      .from('leaderboard')
-      .select('user_id')
-
-    if (leaderboardError) {
-      console.error('Error fetching leaderboard users:', leaderboardError)
-      return NextResponse.json({ error: leaderboardError.message }, { status: 500 })
-    }
-
-    // Extract user IDs from the leaderboard
-    const leaderboardUserIds = leaderboardUsers.map((user) => user.user_id)
-
-    // Get total shuffle count only from users on the leaderboard
-    const { count: totalCount, error: totalError } = await supabaseAdmin
+    // Get all shuffles count regardless of whether users are on leaderboard or not
+    const { count: globalCount, error: globalError } = await supabaseAdmin
       .from('global_shuffles')
       .select('*', { count: 'exact', head: true })
-      .in('user_id', leaderboardUserIds)
 
-    if (totalError) {
-      console.error('Error counting leaderboard shuffles:', totalError)
-      return NextResponse.json({ error: totalError.message }, { status: 500 })
+    if (globalError) {
+      console.error('Error counting global shuffles:', globalError)
+      return NextResponse.json({ error: globalError.message }, { status: 500 })
     }
 
-    console.log("API: Total leaderboard users' shuffles count:", totalCount)
+    console.log('API: Total global shuffles count:', globalCount)
 
     // If userId is provided, get user's shuffle counts
     if (userId) {
@@ -58,8 +44,10 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: userSavedError.message }, { status: 500 })
       }
 
+      // Return consistent response with both count and total fields
       return NextResponse.json({
-        total: totalCount,
+        count: globalCount,
+        total: globalCount,
         user: {
           total: userTotalCount,
           saved: userSavedCount,
@@ -67,8 +55,11 @@ export async function GET(request: Request) {
       })
     }
 
-    // If no userId, just return the total
-    return NextResponse.json({ count: totalCount })
+    // Return consistent response with both count and total fields
+    return NextResponse.json({
+      count: globalCount,
+      total: globalCount,
+    })
   } catch (error) {
     console.error('Unexpected error counting shuffles:', error)
     return NextResponse.json(
