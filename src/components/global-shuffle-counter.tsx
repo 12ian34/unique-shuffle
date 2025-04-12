@@ -124,18 +124,72 @@ export function GlobalShuffleCounter({
   // For click-to-refresh functionality
   const handleManualRefresh = async () => {
     setIsLoading({ global: true, user: true })
+
     try {
-      // Force a refresh of all stats
-      await fetchStats(true)
+      // Get current global count before refresh
+      const currentGlobalCount = getGlobalCount()
 
-      // After fetching, ensure our component is using the right values
-      const globalShuffles = getGlobalCount()
-      const userStatsFromStore = getUserStats()
+      // Fetch latest global count
+      try {
+        const timestamp = Date.now()
+        const response = await fetch(`/api/shuffles/count?timestamp=${timestamp}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+        })
 
-      // Update our component state with the fresh values
-      setTotalShuffles(globalShuffles)
-      if (userStatsFromStore) {
-        setUserShuffles(userStatsFromStore)
+        if (response.ok) {
+          const data = await response.json()
+          const count = data.total !== undefined ? data.total : data.count
+
+          if (typeof count === 'number') {
+            console.log(`Updated global count to ${count}`)
+            // Use updateCountFromEvent to update the store properly
+            const statsStore = await import('@/lib/stats-store')
+            statsStore.updateCountFromEvent(count, false)
+            // Update component state
+            setTotalShuffles(count)
+            highlightUpdate('global')
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch global count:', error)
+        // Keep existing count on failure
+        setTotalShuffles(currentGlobalCount)
+      }
+
+      // Fetch user stats separately
+      try {
+        const timestamp = Date.now()
+        const userResponse = await fetch(`/api/user/stats?timestamp=${timestamp}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+        })
+
+        if (userResponse.ok) {
+          const data = await userResponse.json()
+          if (data.stats) {
+            // Update component state directly
+            setUserShuffles(data.stats)
+            highlightUpdate('user')
+
+            // Also update the store
+            const statsStore = await import('@/lib/stats-store')
+            if (statsStore.getUserStats() !== data.stats) {
+              // Hack to update the user stats without using direct store access
+              await statsStore.updateCountFromEvent(getGlobalCount(), true)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user stats:', error)
       }
     } finally {
       setIsLoading({ global: false, user: false })

@@ -63,18 +63,51 @@ export function getUserStats(): UserStats | null {
 // Update counts directly from shuffle events (optimistic updates)
 export async function updateCountFromEvent(count: number | null | undefined, isUserAction = false) {
   if (typeof count === 'number') {
+    // Store the new count so we can compare after refresh
+    const newGlobalCount = count
+
     // Update the global count optimistically
-    store.global.totalShuffles = count
+    store.global.totalShuffles = newGlobalCount
     store.global.lastUpdated = Date.now()
 
-    // Always do a full refresh after the optimistic update
-    // to ensure global and user stats stay in sync
-    setTimeout(() => {
-      fetchStats(true)
-    }, 2000)
-
-    // Notify all components of the global update right away
+    // Notify listeners about the optimistic update
     notifyListeners()
+
+    // Fetch user stats separately without overriding our optimistic global count
+    if (isUserAction) {
+      try {
+        const timestamp = Date.now()
+        const userResponse = await fetch(`/api/user/stats?timestamp=${timestamp}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+        })
+
+        if (userResponse.ok) {
+          const data = await userResponse.json()
+          if (data.stats) {
+            // Update only user stats from server data
+            console.log(
+              `Stats Store: Updated user stats from server: ${data.stats.total_shuffles} shuffles, streak ${data.stats.shuffle_streak} days`
+            )
+            store.user.stats = data.stats
+            store.user.lastUpdated = Date.now()
+
+            // Make sure we keep our latest global count
+            store.global.totalShuffles = newGlobalCount
+
+            // Notify listeners of the user stats update
+            notifyListeners()
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch updated user stats:', error)
+      }
+    }
+
     return true
   }
   return false
@@ -220,28 +253,46 @@ export function handleShuffleCompleted(event: CustomEvent) {
       `Stats Store: Handling ${type} event, count=${count}, isUserAction=${shouldUpdateUserStats}`
     )
 
-    // Always update user stats for all user actions to ensure streak updates correctly
+    // Update counts optimistically - this will also fetch user stats if needed
     updateCountFromEvent(count, shouldUpdateUserStats)
-
-    // If this is a first shuffle, force a refresh to get streak
-    if (store.user.stats && store.user.stats.total_shuffles === 0) {
-      console.log('Stats Store: First shuffle detected, forcing full refresh')
-      setTimeout(() => {
-        fetchStats(true)
-      }, 1000)
-    }
-
     return
   }
 
-  // If we don't have a count in the event, refresh from the server
-  // but only if it's been a while since the last refresh
+  // If we don't have a count in the event, only refresh user stats to avoid
+  // interfering with optimistic global updates
   const now = Date.now()
-  if (now - store.global.lastUpdated > store.MIN_REFRESH_INTERVAL) {
-    console.log('Stats Store: No count in event, scheduling refresh')
-    // Schedule refresh with delay
-    setTimeout(() => {
-      fetchStats(true)
+  if (now - store.user.lastUpdated > store.MIN_REFRESH_INTERVAL) {
+    console.log('Stats Store: No count in event, scheduling user stats refresh')
+
+    setTimeout(async () => {
+      try {
+        const timestamp = Date.now()
+        const userResponse = await fetch(`/api/user/stats?timestamp=${timestamp}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+        })
+
+        if (userResponse.ok) {
+          const data = await userResponse.json()
+          if (data.stats) {
+            // Update only user stats from server data
+            console.log(
+              `Stats Store: Updated user stats from server: ${data.stats.total_shuffles} shuffles, streak ${data.stats.shuffle_streak} days`
+            )
+            store.user.stats = data.stats
+            store.user.lastUpdated = Date.now()
+
+            // Notify listeners of the user stats update
+            notifyListeners()
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch updated user stats:', error)
+      }
     }, 2000)
   }
 }
