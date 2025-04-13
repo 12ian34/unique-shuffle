@@ -36,6 +36,7 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
     'none' | 'shuffle-in-progress' | 'shuffle-complete'
   >('none')
   const nextShuffleRef = useRef<CardType[]>([])
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize a random deck immediately
   useEffect(() => {
@@ -44,7 +45,17 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
       const initialDeck = createDeck()
       setCurrentShuffle(shuffleDeck(initialDeck))
       initialLoadRef.current = false
-      setIsLoading(false)
+
+      // Ensure we don't stay in loading state for too long
+      loadTimeoutRef.current = setTimeout(() => {
+        setIsLoading(false)
+      }, 2000) // Fallback timeout to exit loading state
+    }
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -72,12 +83,30 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
         }
       } catch (error) {
         console.error('Error loading saved shuffle:', error)
+      } finally {
+        // Always exit loading state even if the fetch fails
+        setIsLoading(false)
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current)
+        }
       }
     }
 
     // Load saved shuffle once without blocking UI
     loadSavedShuffleOnce()
   }, [])
+
+  // Fallback to ensure we never stay in loading state permanently
+  useEffect(() => {
+    const failsafeTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Failsafe: Exiting loading state after timeout')
+        setIsLoading(false)
+      }
+    }, 5000) // Exit loading state after 5 seconds max
+
+    return () => clearTimeout(failsafeTimeout)
+  }, [isLoading])
 
   const handleShuffle = async () => {
     // Rate limiting - prevent rapid shuffling (min 500ms between shuffles)
@@ -257,7 +286,7 @@ export function ShuffleDisplay({ onSaveShuffleAction, className }: ShuffleDispla
       .map((_, i) => currentShuffle.slice(i * size, (i + 1) * size))
   }, [currentShuffle])
 
-  if (isLoading && currentShuffle.length === 0) {
+  if (isLoading) {
     return (
       <div className={className}>
         <div className='flex justify-center items-center h-32 bg-slate-800 rounded-lg'>

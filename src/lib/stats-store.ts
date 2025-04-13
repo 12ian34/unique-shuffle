@@ -223,7 +223,16 @@ export async function initializeStats() {
   console.log('Stats Store: Initializing store with initial data')
   hasInitialized = true
 
-  const result = await fetchStats(true)
+  // Add a timeout to prevent blocking the UI
+  const timeoutPromise = new Promise<boolean>((resolve) => {
+    setTimeout(() => {
+      console.log('Stats Store: Initialization timed out, continuing with default values')
+      resolve(false)
+    }, 3000) // 3 second timeout
+  })
+
+  // Race the fetch against the timeout
+  const result = await Promise.race([fetchStats(true), timeoutPromise])
 
   // Optimistically set streak to 1 for users who have shuffles but no streak yet
   if (
