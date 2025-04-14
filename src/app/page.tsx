@@ -93,6 +93,10 @@ export default function HomePage() {
       isAuthenticated: isAuthenticated === true,
     })
 
+    // Reset the shuffle processing state for the new shuffle first
+    hasProcessedCurrentShuffleRef.current = false
+    isSaveInProgressRef.current = false
+
     setIsShuffling(true)
     setEarnedAchievements([])
     setShowAnimation(false)
@@ -101,10 +105,6 @@ export default function HomePage() {
     // Reset shuffle save states
     setCurrentShuffleId(null)
     setIsShuffleSaved(false)
-
-    // Reset the shuffle processing state for the new shuffle
-    hasProcessedCurrentShuffleRef.current = false
-    isSaveInProgressRef.current = false
 
     // Track shuffle start
     trackEvent('shuffle_started')
@@ -132,10 +132,16 @@ export default function HomePage() {
   }
 
   const handleAnimationComplete = async () => {
-    if (!animatedDeck) return
+    if (!animatedDeck) {
+      // Reset state if no animated deck
+      setIsShuffling(false)
+      return
+    }
 
     // Prevent multiple executions for the same shuffle
     if (hasProcessedCurrentShuffleRef.current) {
+      // Reset state even if we're not processing
+      setIsShuffling(false)
       return
     }
 
@@ -144,6 +150,8 @@ export default function HomePage() {
 
     // Prevent concurrent save operations
     if (isSaveInProgressRef.current) {
+      // Reset state even if save is in progress
+      setIsShuffling(false)
       return
     }
 
@@ -539,6 +547,14 @@ export default function HomePage() {
       window.debugShuffleCode = debugShuffleCode
     }
   }, [])
+
+  // Safety effect to ensure isShuffling state gets reset if animation is dismissed
+  useEffect(() => {
+    if (!showAnimation && isShuffling) {
+      // If animation is not showing but isShuffling is still true, reset it
+      setIsShuffling(false)
+    }
+  }, [showAnimation, isShuffling])
 
   return (
     <div className='space-y-8 w-full overflow-hidden'>

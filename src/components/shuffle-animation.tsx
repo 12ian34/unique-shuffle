@@ -107,6 +107,9 @@ export function ShuffleAnimation({
 
   // Run the animation sequence
   useEffect(() => {
+    // Only run the animation if we haven't already completed it for this deck
+    if (hasCompletedRef.current) return
+
     // Reset completion state when new animation starts
     hasCompletedRef.current = false
 
@@ -131,12 +134,11 @@ export function ShuffleAnimation({
       // Complete
       setAnimationStage('complete')
 
-      // Let parent know we're done
+      // Let parent know we're done - ensure this always happens
       setTimeout(() => {
-        if (!hasCompletedRef.current) {
-          hasCompletedRef.current = true
-          onCompleteAction()
-        }
+        // Always call onCompleteAction regardless of hasCompletedRef state
+        hasCompletedRef.current = true
+        onCompleteAction()
       }, totalAnimationDuration * 0.05)
     }
 
@@ -146,7 +148,7 @@ export function ShuffleAnimation({
     return () => {
       hasCompletedRef.current = true
     }
-  }, [deck, onCompleteAction, totalAnimationDuration])
+  }, [deck.length, onCompleteAction, totalAnimationDuration])
 
   return (
     <div className={cn('relative w-full h-[50vh] overflow-hidden', className)}>
