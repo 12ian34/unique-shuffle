@@ -63,8 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     className='hover:underline text-primary/80 hover:text-primary transition-colors'
                   >
                     ian ahuja
-                  </a>{' '}
-                  all rights reserved.
+                  </a>
                 </p>
                 <p className='mt-2'>
                   💻{' '}
@@ -74,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     rel='noopener noreferrer'
                     className='hover:underline text-primary/80 hover:text-primary transition-colors'
                   >
-                    source code
+                    source code&nbsp;&nbsp;
                   </a>
                   🍕{' '}
                   <a

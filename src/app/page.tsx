@@ -541,11 +541,11 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className='space-y-8 w-full overflow-x-hidden'>
+    <div className='space-y-8 w-full overflow-hidden'>
       <div className='text-center max-w-2xl mx-auto'>
-        <p className='text-lg text-muted-foreground mb-6 break-all'>
+        <p className='text-lg text-muted-foreground mb-6 break-normal max-w-full'>
           there is a 1 in
-          80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
+          80,658,175,170,943,878,571,&#8203;660,636,856,403,766,975,289,&#8203;505,440,883,277,824,000,000,000,000
           chance that anyone has shuffled this before. it&apos;s probably unique...
         </p>
         <div className='flex justify-center'>

@@ -56,7 +56,7 @@ export function ShuffleDisplay({ deck, patterns = [], className }: ShuffleDispla
     <div className='space-y-6'>
       {patterns.length > 0 && (
         <div className='space-y-3'>
-          <h3 className='text-lg font-medium'>Found Patterns</h3>
+          <h3 className='text-lg font-medium'>patterns</h3>
           <div className='flex flex-wrap gap-2'>
             {/* Iterate through unique pattern groups instead of all patterns */}
             {groupEntries.map(([indicesKey, groupPatterns], groupIndex) => {

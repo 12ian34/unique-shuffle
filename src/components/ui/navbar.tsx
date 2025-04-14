@@ -136,10 +136,10 @@ export function Navbar({ className }: NavbarProps) {
                   )}
                   onClick={() => handleNavigation(item.path, item.name)}
                 >
-                  {item.name === 'Shuffle' ? (
+                  {item.name === 'shuffle' ? (
                     <span className='relative group'>
                       <span className='relative z-10 font-bold tracking-wider text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.7)] animate-glow-text-subtle'>
-                        Shuffle
+                        shuffle
                       </span>
                       <span className='absolute inset-0 -z-10 blur-sm bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-80 rounded-md group-hover:opacity-90 group-hover:blur-md transition-all'></span>
                       <span className='absolute -inset-1 -z-20 scale-90 opacity-30 group-hover:opacity-40 group-hover:scale-110 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30 blur-xl rounded-lg transition-all duration-300'></span>
