@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang='en' suppressHydrationWarning>
       <body className={`${inter.className} antialiased overflow-x-hidden`}>
         <Providers>
-          <div className='min-h-screen flex flex-col bg-background overflow-x-hidden'>
+          <div className='min-h-screen flex flex-col bg-background overflow-x-hidden overscroll-none'>
             <UserStatsProvider>
               <Navbar />
             </UserStatsProvider>

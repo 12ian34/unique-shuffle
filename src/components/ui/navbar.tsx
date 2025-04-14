@@ -93,11 +93,14 @@ export function Navbar({ className }: NavbarProps) {
 
           <div
             ref={scrollContainerRef}
-            className='flex-1 overflow-x-auto hide-scrollbar px-1 w-full max-w-full'
+            className='flex-1 overflow-x-auto hide-scrollbar px-1 w-full max-w-full touch-pan-x'
           >
             <div
               ref={navLinksRef}
-              className={cn('flex space-x-2 py-1 w-max', showScrollHint && 'scroll-hint')}
+              className={cn(
+                'flex space-x-2 py-1 w-max min-h-[48px] items-center',
+                showScrollHint && 'scroll-hint'
+              )}
             >
               {navigationItems.map((item) => (
                 <Link
