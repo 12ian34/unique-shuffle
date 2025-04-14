@@ -76,7 +76,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   >
                     source code
                   </a>
-                  {' • '}
                   🍕{' '}
                   <a
                     href='https://www.buymeacoffee.com/12ian34'
