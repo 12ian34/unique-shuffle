@@ -72,22 +72,44 @@ export async function generateMetadata(
 
   // Find patterns in the shuffle
   const patterns = findPatterns(shuffle.cards)
-  const patternNames = patterns.map((p) => p.name).join(', ')
+
+  // Get pattern information for more engaging description
+  const patternCount = patterns.length
+  const patternNames = patterns.map((p) => p.name)
+
+  // Create dynamic title based on patterns
+  let title = `${username}'s shuffle | unique shuffle`
+  if (patternCount >= 3) {
+    title = `${username} found ${patternCount} patterns! | unique shuffle`
+  } else if (patternCount === 1) {
+    title = `${username} discovered a ${patternNames[0]}! | unique shuffle`
+  } else if (patternCount === 2) {
+    title = `${username} found a ${patternNames[0]} and ${patternNames[1]}! | unique shuffle`
+  }
 
   // Create dynamic description based on patterns and username
-  const description =
-    patterns.length > 0
-      ? `check out this card shuffle by ${username} featuring ${patternNames}!`
-      : `check out this unique card shuffle by ${username}!`
+  let description = `Check out this unique card shuffle by ${username}!`
+
+  if (patternCount > 0) {
+    if (patternCount <= 3) {
+      description = `${username} discovered ${patternNames.join(
+        ', '
+      )} in this card shuffle! See the full pattern and try your own shuffle.`
+    } else {
+      description = `${username} found ${patternCount} different patterns including ${patternNames
+        .slice(0, 3)
+        .join(', ')} and more! Check it out and create your own unique shuffle.`
+    }
+  }
 
   // Absolute URL for OG image
   const ogImageUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/og?code=${code}`
 
   return {
-    title: `${username}'s shuffle | unique shuffle`,
+    title,
     description,
     openGraph: {
-      title: `${username}'s card shuffle | unique shuffle`,
+      title,
       description,
       type: 'website',
       url: `${process.env.NEXT_PUBLIC_APP_URL}/shared/${code}`,
@@ -96,13 +118,13 @@ export async function generateMetadata(
           url: ogImageUrl,
           width: 1200,
           height: 630,
-          alt: `card shuffle by ${username}`,
+          alt: `Card shuffle by ${username} with ${patternCount} patterns discovered`,
         },
       ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${username}'s card shuffle | unique shuffle`,
+      title,
       description,
       images: [ogImageUrl],
     },

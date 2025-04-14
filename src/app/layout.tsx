@@ -20,22 +20,25 @@ export const metadata: Metadata = {
     locale: 'en_GB',
     url: process.env.NEXT_PUBLIC_APP_URL || 'https://unique-shuffle.netlify.app',
     siteName: 'unique shuffle',
-    title: 'unique shuffle',
-    description: 'shuffle playing cards, discover patterns, and earn achievements',
+    title: 'unique shuffle - discover card patterns',
+    description:
+      'Shuffle playing cards, discover hidden patterns, and earn achievements. Create your unique card shuffles and share them with friends.',
     images: [
       {
         url: `${process.env.NEXT_PUBLIC_APP_URL}/api/og`,
         width: 1200,
         height: 630,
-        alt: 'unique shuffle',
+        alt: 'unique shuffle - card pattern discovery game',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'unique shuffle',
-    description: 'shuffle playing cards, discover patterns, and earn achievements',
+    title: 'unique shuffle - discover card patterns',
+    description:
+      'Shuffle playing cards, discover hidden patterns, and earn achievements. Create your unique card shuffles and share them with friends.',
     images: [`${process.env.NEXT_PUBLIC_APP_URL}/api/og`],
+    creator: '@unique_shuffle',
   },
 }
 

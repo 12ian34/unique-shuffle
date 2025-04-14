@@ -35,6 +35,11 @@ export default function SavedShufflesPage() {
           return
         }
 
+        // Track saved shuffles page view (funnel start)
+        trackEvent('saved_shuffles_page_viewed', {
+          userId: user.id,
+        })
+
         // Fetch all saved shuffles
         const { data } = await supabase
           .from('shuffles')
@@ -44,6 +49,11 @@ export default function SavedShufflesPage() {
           .order('created_at', { ascending: false })
 
         setSavedShuffles(data || [])
+
+        // Track shuffle count (funnel data)
+        trackEvent('saved_shuffles_count', {
+          count: data?.length || 0,
+        })
       } catch (error) {
         console.error('Error fetching saved shuffles:', error)
       } finally {
@@ -55,6 +65,11 @@ export default function SavedShufflesPage() {
   }, [router])
 
   const handleShareShuffle = async (shuffleId: string) => {
+    // Track share intent (funnel step)
+    trackEvent('shuffle_share_intent', {
+      shuffleId,
+    })
+
     // Prevent sharing if already in progress
     if (sharingInProgress[shuffleId]) return
 
@@ -129,8 +144,17 @@ export default function SavedShufflesPage() {
   }
 
   const handleDeleteShuffle = async (shuffleId: string) => {
+    // Track delete intent (funnel step)
+    trackEvent('shuffle_delete_intent', {
+      shuffleId,
+    })
+
     // Ask for confirmation before removing
     if (!window.confirm('are you sure you want to remove this shuffle from your saved shuffles?')) {
+      // Track cancel deletion (funnel abandon)
+      trackEvent('shuffle_delete_cancelled', {
+        shuffleId,
+      })
       return
     }
 
@@ -179,6 +203,11 @@ export default function SavedShufflesPage() {
 
   // Add a function to handle copying the share URL
   const copyShareUrl = (shareCode: string) => {
+    // Track copy intent (funnel step)
+    trackEvent('shuffle_copy_intent', {
+      shareCode,
+    })
+
     const shareUrl = `${window.location.origin}/shared/${shareCode}`
     navigator.clipboard.writeText(shareUrl).then(
       () => {
@@ -220,6 +249,11 @@ export default function SavedShufflesPage() {
   }
 
   const viewShuffle = async (shuffleId: string) => {
+    // Track view intent (funnel step)
+    trackEvent('saved_shuffle_view_intent', {
+      shuffleId,
+    })
+
     // Check if it has a valid ID
     if (!shuffleId) {
       toast({

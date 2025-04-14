@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { generateUsername } from '@/utils/username-generator'
 import { useAuth } from '@/contexts/AuthContext'
 import { ArrowRightIcon, CheckIcon } from '@radix-ui/react-icons'
+import { trackEvent } from '@/lib/analytics'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -56,11 +57,23 @@ export default function AuthPage() {
         cleanUrl.searchParams.delete('error')
         router.replace(cleanUrl.pathname + cleanUrl.search)
       }
+
+      // Track auth page view (funnel step)
+      trackEvent('auth_page_viewed', {
+        mode: tabParam === 'signup' ? 'signup' : 'login',
+        referrer: document.referrer || 'direct',
+      })
     }
   }, [router])
 
   // Function to toggle between login and signup modes
   const toggleMode = () => {
+    // Track auth mode toggle (funnel step)
+    trackEvent('auth_mode_toggled', {
+      from: isSignUp ? 'signup' : 'login',
+      to: isSignUp ? 'login' : 'signup',
+    })
+
     setIsSignUp((prev) => !prev)
     // Clear form state when switching modes
     setError(null)
@@ -69,6 +82,15 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Track form submission (funnel step)
+    trackEvent('auth_form_submitted', {
+      mode: isSignUp ? 'signup' : 'login',
+      hasUsername: !!username.trim(),
+      hasEmail: !!email.trim(),
+      passwordLength: password.length,
+    })
+
     setIsLoading(true)
     setError(null)
     setSuccess(null)
@@ -85,6 +107,12 @@ export default function AuthPage() {
           setSuccess(
             'Account created successfully! Please check your email for a confirmation link.'
           )
+
+          // Track verification needed (funnel step)
+          trackEvent('auth_verification_needed', {
+            email: email.includes('@') ? email.split('@')[1] : 'unknown',
+          })
+
           setEmail('')
           setPassword('')
           setUsername(generateUsername())
@@ -102,9 +130,24 @@ export default function AuthPage() {
     } catch (err: any) {
       console.error(`${isSignUp ? 'sign up' : 'login'} error:`, err)
       setError(err.message || `An error occurred during ${isSignUp ? 'signup' : 'login'}`)
+
+      // Track auth error (funnel step)
+      trackEvent('auth_error', {
+        mode: isSignUp ? 'signup' : 'login',
+        error: err.message || 'Unknown error',
+        step: 'form_submission',
+      })
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Track form field interactions
+  const trackFieldInteraction = (field: string) => {
+    trackEvent('auth_field_interaction', {
+      mode: isSignUp ? 'signup' : 'login',
+      field: field,
+    })
   }
 
   return (
@@ -150,6 +193,7 @@ export default function AuthPage() {
                     id='username-input'
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    onFocus={() => trackFieldInteraction('username')}
                     className='rounded-r-none'
                     required={isSignUp}
                     disabled={!isSignUp || isLoading}
@@ -158,7 +202,10 @@ export default function AuthPage() {
                     type='button'
                     variant='secondary'
                     className='rounded-l-none'
-                    onClick={() => setUsername(generateUsername())}
+                    onClick={() => {
+                      trackEvent('username_generator_used')
+                      setUsername(generateUsername())
+                    }}
                     disabled={!isSignUp || isLoading}
                   >
                     Random
@@ -173,6 +220,7 @@ export default function AuthPage() {
                   type='email'
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => trackFieldInteraction('email')}
                   required
                   disabled={isLoading}
                   placeholder='your.email@example.com'
@@ -187,6 +235,7 @@ export default function AuthPage() {
                   type='password'
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => trackFieldInteraction('password')}
                   required
                   disabled={isLoading}
                   minLength={isSignUp ? 6 : undefined}

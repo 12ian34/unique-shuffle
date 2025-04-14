@@ -24,19 +24,56 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               fontSize: 40,
               color: 'white',
-              background: '#111827',
+              background: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
               width: '100%',
               height: '100%',
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
               padding: 40,
+              fontFamily: 'Inter, sans-serif',
             }}
           >
-            <h1 style={{ marginBottom: 20 }}>unique shuffle</h1>
-            <p style={{ fontSize: 30 }}>
-              Shuffle playing cards, discover patterns, earn achievements
-            </p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <svg
+                width='60'
+                height='60'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+              >
+                <path
+                  d='M17 4H7C5.89543 4 5 4.89543 5 6V18C5 19.1046 5.89543 20 7 20H17C18.1046 20 19 19.1046 19 18V6C19 4.89543 18.1046 4 17 4Z'
+                  stroke='white'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                />
+                <path d='M9 9H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+                <path d='M9 13H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+              </svg>
+              <h1 style={{ fontSize: 60, margin: 0, marginLeft: 16, fontWeight: 800 }}>
+                unique shuffle
+              </h1>
+            </div>
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: 12,
+                padding: '20px 40px',
+                marginTop: 20,
+              }}
+            >
+              <p style={{ fontSize: 30, textAlign: 'center', margin: 0 }}>
+                Shuffle playing cards, discover patterns, earn achievements
+              </p>
+            </div>
           </div>
         ),
         {
@@ -75,17 +112,54 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               fontSize: 40,
               color: 'white',
-              background: '#111827',
+              background: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
               width: '100%',
               height: '100%',
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
               padding: 40,
+              fontFamily: 'Inter, sans-serif',
             }}
           >
-            <h1 style={{ marginBottom: 20 }}>unique shuffle</h1>
-            <p style={{ fontSize: 30 }}>Shuffle not found</p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <svg
+                width='60'
+                height='60'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+              >
+                <path
+                  d='M17 4H7C5.89543 4 5 4.89543 5 6V18C5 19.1046 5.89543 20 7 20H17C18.1046 20 19 19.1046 19 18V6C19 4.89543 18.1046 4 17 4Z'
+                  stroke='white'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                />
+                <path d='M9 9H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+                <path d='M9 13H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+              </svg>
+              <h1 style={{ fontSize: 60, margin: 0, marginLeft: 16, fontWeight: 800 }}>
+                unique shuffle
+              </h1>
+            </div>
+            <div
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: 12,
+                padding: '20px 40px',
+                marginTop: 20,
+              }}
+            >
+              <p style={{ fontSize: 30, textAlign: 'center', margin: 0 }}>Shuffle not found</p>
+            </div>
           </div>
         ),
         {
@@ -112,8 +186,8 @@ export async function GET(req: NextRequest) {
     // Find patterns in the shuffle
     const patterns = findPatterns(shuffle.cards)
 
-    // Extract first 10 cards for display
-    const displayCards = shuffle.cards.slice(0, 10)
+    // Extract first 12 cards for display
+    const displayCards = shuffle.cards.slice(0, 12)
 
     // Helper function to get card symbol
     const getCardSymbol = (card: string) => {
@@ -164,70 +238,213 @@ export async function GET(req: NextRequest) {
             display: 'flex',
             fontSize: 40,
             color: 'white',
-            background: '#111827',
+            background: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
             width: '100%',
             height: '100%',
             flexDirection: 'column',
             justifyContent: 'space-between',
             padding: 40,
+            fontFamily: 'Inter, sans-serif',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 20 }}>
-            <h1 style={{ margin: 0, fontSize: 60 }}>unique shuffle</h1>
-            <h2 style={{ margin: 0, fontSize: 40, marginTop: 10 }}>
-              {username !== 'Anonymous' ? `Shuffled by ${username}` : 'Saved Shuffle'}
-            </h2>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 20 }}>
-            {displayCards.map((card: string, index: number) => (
-              <div
-                key={index}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  width: 100,
-                  height: 140,
-                  background: 'white',
-                  borderRadius: 10,
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                  color: getCardColor(card),
-                  fontWeight: 'bold',
-                  fontSize: 50,
-                  position: 'relative',
-                }}
+          {/* Header */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              marginBottom: 30,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <svg
+                width='50'
+                height='50'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
               >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div>{getCardValue(card)}</div>
-                  <div>{getCardSymbol(card)}</div>
-                </div>
-              </div>
-            ))}
+                <path
+                  d='M17 4H7C5.89543 4 5 4.89543 5 6V18C5 19.1046 5.89543 20 7 20H17C18.1046 20 19 19.1046 19 18V6C19 4.89543 18.1046 4 17 4Z'
+                  stroke='white'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                />
+                <path d='M9 9H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+                <path d='M9 13H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+              </svg>
+              <h1 style={{ fontSize: 50, margin: 0, marginLeft: 16, fontWeight: 800 }}>
+                unique shuffle
+              </h1>
+            </div>
+            <div
+              style={{
+                background: 'rgba(56, 189, 248, 0.2)',
+                borderRadius: 50,
+                padding: '8px 24px',
+                fontWeight: 500,
+                fontSize: 24,
+                color: 'rgb(186, 230, 253)',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span>shuffled by </span>
+              <span style={{ marginLeft: 4, fontWeight: 700 }}>{username}</span>
+            </div>
           </div>
 
-          {patterns.length > 0 && (
+          {/* Card display with fancy layout */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              alignItems: 'center',
+            }}
+          >
             <div
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginTop: 20,
+                flexWrap: 'wrap',
+                gap: 16,
+                justifyContent: 'center',
+                filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))',
               }}
             >
-              <h3 style={{ margin: 0, fontSize: 30 }}>Patterns found:</h3>
-              <p style={{ margin: 0, fontSize: 24 }}>
-                {patterns
-                  .slice(0, 3)
-                  .map((p) => p.name)
-                  .join(', ')}
-                {patterns.length > 3 && '...'}
-              </p>
+              {displayCards.map((card: string, index: number) => (
+                <div
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: 80,
+                    height: 120,
+                    background: 'white',
+                    borderRadius: 10,
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    color: getCardColor(card),
+                    fontWeight: 'bold',
+                    fontSize: 36,
+                    position: 'relative',
+                    border: '4px solid white',
+                    transform: `rotate(${Math.floor(Math.random() * 5 - 2.5)}deg)`,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                    }}
+                  >
+                    <div style={{ fontSize: 36, lineHeight: 1 }}>{getCardValue(card)}</div>
+                    <div style={{ fontSize: 36, lineHeight: 1, marginTop: 6 }}>
+                      {getCardSymbol(card)}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', fontSize: 28, marginTop: 30 }}>
-            View the full shuffle at unique-shuffle.com
+          {/* Bottom section with patterns and call to action */}
+          <div style={{ marginTop: 30 }}>
+            {patterns.length > 0 && (
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 12,
+                  padding: '16px 24px',
+                  marginBottom: 20,
+                }}
+              >
+                <h3 style={{ margin: 0, fontSize: 26, fontWeight: 600 }}>Patterns discovered:</h3>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 10,
+                    marginTop: 12,
+                  }}
+                >
+                  {patterns.slice(0, 4).map((p, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.2)',
+                        borderRadius: 50,
+                        padding: '4px 16px',
+                        fontSize: 20,
+                        color: 'rgb(186, 230, 253)',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                  ))}
+                  {patterns.length > 4 && (
+                    <div
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        borderRadius: 50,
+                        padding: '4px 16px',
+                        fontSize: 20,
+                        color: 'rgb(186, 230, 253)',
+                        fontWeight: 500,
+                      }}
+                    >
+                      +{patterns.length - 4} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 500,
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 50,
+                  padding: '8px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <svg
+                  width='20'
+                  height='20'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  xmlns='http://www.w3.org/2000/svg'
+                  style={{ marginRight: 8 }}
+                >
+                  <path
+                    d='M12 9V13M12 17H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0377 2.66667 10.2679 4L3.33975 16C2.56998 17.3333 3.53223 19 5.07183 19Z'
+                    stroke='white'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                </svg>
+                Visit unique-shuffle.com to view and create your own!
+              </div>
+            </div>
           </div>
         </div>
       ),
@@ -247,19 +464,56 @@ export async function GET(req: NextRequest) {
             display: 'flex',
             fontSize: 40,
             color: 'white',
-            background: '#111827',
+            background: 'linear-gradient(to bottom right, #1e293b, #0f172a)',
             width: '100%',
             height: '100%',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
             padding: 40,
+            fontFamily: 'Inter, sans-serif',
           }}
         >
-          <h1 style={{ marginBottom: 20 }}>unique shuffle</h1>
-          <p style={{ fontSize: 30 }}>
-            Shuffle playing cards, discover patterns, earn achievements
-          </p>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}
+          >
+            <svg
+              width='60'
+              height='60'
+              viewBox='0 0 24 24'
+              fill='none'
+              xmlns='http://www.w3.org/2000/svg'
+            >
+              <path
+                d='M17 4H7C5.89543 4 5 4.89543 5 6V18C5 19.1046 5.89543 20 7 20H17C18.1046 20 19 19.1046 19 18V6C19 4.89543 18.1046 4 17 4Z'
+                stroke='white'
+                strokeWidth='2'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+              />
+              <path d='M9 9H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+              <path d='M9 13H15' stroke='white' strokeWidth='2' strokeLinecap='round' />
+            </svg>
+            <h1 style={{ fontSize: 60, margin: 0, marginLeft: 16, fontWeight: 800 }}>
+              unique shuffle
+            </h1>
+          </div>
+          <div
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: 12,
+              padding: '20px 40px',
+              marginTop: 20,
+            }}
+          >
+            <p style={{ fontSize: 30, textAlign: 'center', margin: 0 }}>
+              Shuffle playing cards, discover patterns, earn achievements
+            </p>
+          </div>
         </div>
       ),
       {

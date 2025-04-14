@@ -69,6 +69,11 @@ export default function HomePage() {
         // Store this set for later use
         setUserPreviousAchievements(previouslyEarnedAchievementIds)
       }
+
+      // Track page view as funnel start
+      trackEvent('home_page_viewed', {
+        isAuthenticated: !!data.session,
+      })
     }
 
     checkAuth()
@@ -83,6 +88,11 @@ export default function HomePage() {
   }
 
   const handleShuffle = async () => {
+    // Track user intent to shuffle (funnel step)
+    trackEvent('shuffle_intent', {
+      isAuthenticated: isAuthenticated === true,
+    })
+
     setIsShuffling(true)
     setEarnedAchievements([])
     setShowAnimation(false)
@@ -293,11 +303,12 @@ export default function HomePage() {
       setShowAnimation(false)
     }
 
-    // Track successful shuffle completion
-    trackEvent('shuffle_completed', {
-      patternCount: patterns.length,
+    // Track results view (funnel step)
+    trackEvent('shuffle_results_viewed', {
+      isAuthenticated: isAuthenticated === true,
       shuffleId: currentShuffleId,
       deckSize: animatedDeck?.length || 52,
+      patternCount: patterns.length,
     })
   }
 
@@ -391,6 +402,12 @@ export default function HomePage() {
 
   // Add a new function to handle saving a shuffle
   const handleSaveShuffle = async () => {
+    // Track save intent (funnel step)
+    trackEvent('shuffle_save_intent', {
+      isAuthenticated: isAuthenticated === true,
+      shuffleId: currentShuffleId,
+    })
+
     if (!currentShuffleId || !isAuthenticated) {
       toast({
         title: 'cannot save shuffle',
