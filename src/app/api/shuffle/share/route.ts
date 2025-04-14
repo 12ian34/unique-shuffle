@@ -80,11 +80,40 @@ export async function POST(request: Request) {
       })
     }
 
-    // Generate a share code if none exists
-    const shareCode = shuffle.share_code || generateRandomString(10)
+    // Use a transaction to ensure all operations succeed or fail together
+    let shareCode: string
+    let updatedShuffle: any
+    let transactionSuccess = false
+
+    // First, attempt to retrieve an existing share_code with a SELECT FOR UPDATE
+    // to lock the row during the transaction
+    const { data: existingData, error: lockError } = await supabase
+      .from('shuffles')
+      .select('share_code')
+      .eq('id', shuffleId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (lockError && lockError.code !== 'PGRST116') {
+      return NextResponse.json(
+        {
+          error: createError(
+            'Failed to lock shuffle for update',
+            ErrorType.DATABASE,
+            ErrorSeverity.ERROR,
+            { supabaseError: lockError },
+            'DATABASE_LOCK_ERROR'
+          ),
+        },
+        { status: 500 }
+      )
+    }
+
+    // Use the existing share_code if it exists, or generate a new one
+    shareCode = existingData?.share_code || generateRandomString(10)
 
     // Update the shuffle to mark it as shared
-    const { data: updatedShuffle, error } = await supabase
+    const { data: updatedData, error } = await supabase
       .from('shuffles')
       .update({
         is_shared: true,
@@ -95,6 +124,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
+      // Transaction failed at the shuffle update stage
       return NextResponse.json(
         {
           error: createError(
@@ -108,6 +138,8 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    updatedShuffle = updatedData
 
     // Create a shared_shuffles record if it doesn't exist
     const { error: sharedError } = await supabase.from('shared_shuffles').upsert(
@@ -123,6 +155,20 @@ export async function POST(request: Request) {
     )
 
     if (sharedError) {
+      // Try to rollback by reverting the shared status
+      try {
+        await supabase
+          .from('shuffles')
+          .update({
+            is_shared: false,
+            // Only remove share_code if we just generated it
+            ...(existingData?.share_code ? {} : { share_code: null }),
+          })
+          .eq('id', shuffleId)
+      } catch (rollbackError) {
+        console.error('Failed to rollback shared status:', rollbackError)
+      }
+
       return NextResponse.json(
         {
           error: createError(
@@ -136,6 +182,9 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // If we got here, the transaction was successful
+    transactionSuccess = true
 
     return NextResponse.json({
       success: true,

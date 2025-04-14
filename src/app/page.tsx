@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createDeck, shuffleDeck } from '@/lib/cards'
-import { findPatterns } from '@/lib/achievements'
+import { findPatterns, checkAchievements } from '@/lib/achievements'
 import { Deck, Pattern, Achievement } from '@/types'
 import { ShuffleDisplay } from '@/components/shuffle-display'
 import { ShuffleAnimation } from '@/components/shuffle-animation'
@@ -15,6 +15,7 @@ import { refreshShuffleStats } from '@/components/global-shuffle-counter'
 import { refreshUserStats } from '@/components/user-stats-provider'
 import { BookmarkIcon, BookmarkFilledIcon } from '@radix-ui/react-icons'
 import { generateRandomString } from '@/lib/utils'
+import { ToastButton } from '@/components/ui/toast-button'
 
 export default function HomePage() {
   const router = useRouter()
@@ -25,7 +26,7 @@ export default function HomePage() {
   const [showAnimation, setShowAnimation] = useState(false)
   const [animatedDeck, setAnimatedDeck] = useState<Deck | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const { toast } = useToast()
+  const { toast, dismiss } = useToast()
   // Add a ref to track if a save operation is in progress
   const isSaveInProgressRef = useRef(false)
   // Add a ref to track if this shuffle has been processed
@@ -144,12 +145,41 @@ export default function HomePage() {
       const accessToken = authData.session?.access_token
       console.log('Auth Session Check:', authData.session ? 'Active session' : 'No session')
 
-      // If not authenticated, show a toast with info about signing in
+      // If not authenticated, show a toast with info about signing in AND check achievements client-side
       if (!authData.session) {
+        // Check achievements client-side for non-authenticated users
+        // Use 0 as shuffle count since we can't track for anonymous users
+        const earnedAchievementsForAnonymous = checkAchievements(animatedDeck, 0)
+
+        // Set the earned achievements for display
+        if (earnedAchievementsForAnonymous.length > 0) {
+          setEarnedAchievements(earnedAchievementsForAnonymous)
+          // For non-authenticated users, all achievements are "new"
+          setNewAchievements(earnedAchievementsForAnonymous)
+          setPreviouslyUnlockedAchievements([])
+        }
+
+        // Show sign-in toast (only once per shuffle)
+        dismiss() // Dismiss any existing toasts first
         toast({
           title: 'Shuffle not saved',
-          description: 'Sign in to save your shuffles and track achievements!',
-          duration: 5000,
+          description: (
+            <div className='flex flex-col gap-2'>
+              <p>Sign in to save your shuffles and track achievements!</p>
+              <ToastButton
+                href='/auth?tab=signup'
+                onClick={(e) => {
+                  e.preventDefault()
+                  dismiss() // Dismiss all toasts
+                  router.push('/auth?tab=signup')
+                }}
+              >
+                Create an account
+              </ToastButton>
+            </div>
+          ),
+          duration: 5000, // 5 seconds instead of 8
+          variant: 'gradient',
         })
         return
       }
@@ -270,6 +300,8 @@ export default function HomePage() {
           .insert({
             user_id: session.user.id,
             cards: deck,
+            is_shared: true, // Mark as shared so it can be viewed by ID
+            share_code: generateRandomString(10), // Generate a share code for easy sharing
           })
           .select()
           .single()
@@ -338,8 +370,23 @@ export default function HomePage() {
     if (!currentShuffleId || !isAuthenticated) {
       toast({
         title: 'Cannot save shuffle',
-        description: 'Please sign in to save shuffles.',
+        description: (
+          <div className='flex flex-col gap-2'>
+            <p>Please sign in to save shuffles.</p>
+            <ToastButton
+              href='/auth?tab=signup'
+              onClick={(e) => {
+                e.preventDefault()
+                dismiss() // Dismiss all toasts
+                router.push('/auth?tab=signup')
+              }}
+            >
+              Sign up here
+            </ToastButton>
+          </div>
+        ),
         variant: 'destructive',
+        duration: 8000,
       })
       return
     }
@@ -347,12 +394,17 @@ export default function HomePage() {
     setIsSaving(true)
 
     try {
+      // Generate a random share code
+      const shareCode = generateRandomString(10)
+
       // Use direct Supabase client to update the shuffle
       const { data: updatedShuffle, error } = await supabase
         .from('shuffles')
         .update({
           is_saved: true,
-          // We should not generate a share_code here - it should only be generated when sharing
+          is_shared: true,
+          // Generate a share_code when saving to make it easier to share later
+          share_code: shareCode,
         })
         .eq('id', currentShuffleId)
         .select()
@@ -369,7 +421,21 @@ export default function HomePage() {
         console.error('Error saving shuffle:', error)
         toast({
           title: 'Error saving shuffle',
-          description: 'There was a problem saving your shuffle.',
+          description: (
+            <div className='flex flex-col gap-2'>
+              <p>There was a problem saving your shuffle.</p>
+              <ToastButton
+                href='#'
+                variant='destructive'
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleSaveShuffle()
+                }}
+              >
+                Try Again
+              </ToastButton>
+            </div>
+          ),
           variant: 'destructive',
         })
       } else {
@@ -377,6 +443,7 @@ export default function HomePage() {
         toast({
           title: 'Shuffle saved',
           description: 'Your shuffle has been saved to your profile.',
+          variant: 'success',
         })
 
         // Refresh user stats to update saved shuffle count
@@ -386,7 +453,21 @@ export default function HomePage() {
       console.error('Error saving shuffle:', error)
       toast({
         title: 'Error saving shuffle',
-        description: 'There was a problem saving your shuffle.',
+        description: (
+          <div className='flex flex-col gap-2'>
+            <p>There was a problem saving your shuffle.</p>
+            <ToastButton
+              href='#'
+              variant='destructive'
+              onClick={(e) => {
+                e.preventDefault()
+                handleSaveShuffle()
+              }}
+            >
+              Try Again
+            </ToastButton>
+          </div>
+        ),
         variant: 'destructive',
       })
     } finally {
@@ -394,12 +475,44 @@ export default function HomePage() {
     }
   }
 
+  // Add a debug function to help with diagnosing shuffle issues
+  const debugShuffleCode = async (code: string) => {
+    if (!code) {
+      console.error('Please provide a shuffle code to debug')
+      return
+    }
+
+    console.log(`Debugging shuffle with code: ${code}`)
+    try {
+      const response = await fetch(`/api/shuffle/verify?code=${code}`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+      console.log('Debug results:', data)
+
+      return data
+    } catch (error) {
+      console.error('Error debugging shuffle:', error)
+    }
+  }
+
+  // Expose the debug function to the window object for debugging in console
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-ignore - Adding custom property to window for debugging
+      window.debugShuffleCode = debugShuffleCode
+      console.log('Debug function available: debugShuffleCode("your-code-here")')
+    }
+  }, [])
+
   return (
     <div className='space-y-8 w-full overflow-x-hidden'>
       <div className='text-center max-w-2xl mx-auto'>
-        <h1 className='text-4xl font-bold tracking-tight sm:text-5xl mb-4 gradient-text'>
-          Unique Shuffle
-        </h1>
         <p className='text-lg text-muted-foreground mb-6 break-all'>
           There is a 1 in
           80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
@@ -410,9 +523,13 @@ export default function HomePage() {
             onClick={handleShuffle}
             disabled={isShuffling}
             size='lg'
-            className='shadow-lg hover:shadow-primary/20 transition-all duration-300'
+            className='shadow-lg hover:shadow-primary/20 transition-all duration-300 relative group'
           >
-            {isShuffling ? 'Shuffling...' : 'Shuffle Cards'}
+            <span className='relative z-[5] font-bold tracking-wider animate-glow-text-subtle'>
+              {isShuffling ? 'Shuffling...' : 'Shuffle Cards'}
+            </span>
+            <span className='absolute inset-0 -z-[1] blur-sm bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-80 rounded-md group-hover:opacity-90 group-hover:blur-md transition-all'></span>
+            <span className='absolute -inset-1 -z-[2] scale-90 opacity-30 group-hover:opacity-40 group-hover:scale-110 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30 blur-xl rounded-lg transition-all duration-300'></span>
           </Button>
         </div>
       </div>
@@ -431,44 +548,16 @@ export default function HomePage() {
 
       {shuffledDeck && (
         <>
-          <Card className='mx-auto card-hover'>
-            <CardHeader>
-              <div className='flex justify-between items-center'>
-                <CardTitle>Shuffled Deck</CardTitle>
-                {isAuthenticated && (
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    onClick={handleSaveShuffle}
-                    disabled={isShuffleSaved || isSaving}
-                    className='flex items-center gap-1'
-                  >
-                    {isShuffleSaved ? (
-                      <>
-                        <BookmarkFilledIcon className='h-4 w-4 text-primary' />
-                        <span>Saved</span>
-                      </>
-                    ) : (
-                      <>
-                        <BookmarkIcon className='h-4 w-4' />
-                        <span>{isSaving ? 'Saving...' : 'Save'}</span>
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ShuffleDisplay deck={shuffledDeck} />
-            </CardContent>
-          </Card>
-
           {newAchievements.length > 0 && (
             <Card className='bg-primary/10 border-primary/20 card-hover'>
               <CardHeader>
-                <CardTitle>New Achievements Unlocked!</CardTitle>
+                <CardTitle>
+                  {isAuthenticated ? 'New Achievements Unlocked!' : 'Achievements Unlocked!'}
+                </CardTitle>
                 <CardDescription>
-                  Congratulations on earning these for the first time
+                  {isAuthenticated
+                    ? 'Congratulations on earning these for the first time'
+                    : 'Sign in to save these achievements to your profile'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -479,7 +568,7 @@ export default function HomePage() {
                       className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
                     >
                       <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm font-medium'>
-                        NEW
+                        {isAuthenticated ? 'NEW' : 'EARNED'}
                       </span>
                       <div>
                         <p className='font-medium'>{achievement.name}</p>
@@ -488,6 +577,17 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
+                {!isAuthenticated && newAchievements.length > 0 && (
+                  <div className='mt-4 text-center'>
+                    <Button
+                      onClick={() => router.push('/auth?tab=signup')}
+                      variant='default'
+                      size='sm'
+                    >
+                      Sign up to save achievements
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -517,6 +617,38 @@ export default function HomePage() {
               </CardContent>
             </Card>
           )}
+
+          <Card className='mx-auto card-hover'>
+            <CardHeader>
+              <div className='flex justify-between items-center'>
+                <CardTitle>Shuffled Deck</CardTitle>
+                {isAuthenticated && (
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={handleSaveShuffle}
+                    disabled={isShuffleSaved || isSaving}
+                    className='flex items-center gap-1'
+                  >
+                    {isShuffleSaved ? (
+                      <>
+                        <BookmarkFilledIcon className='h-4 w-4 text-primary' />
+                        <span>Saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkIcon className='h-4 w-4' />
+                        <span>{isSaving ? 'Saving...' : 'Save'}</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ShuffleDisplay deck={shuffledDeck} patterns={patterns} />
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

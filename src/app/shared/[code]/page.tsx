@@ -7,6 +7,8 @@ import { findPatterns } from '@/lib/achievements'
 import supabaseAdmin from '@/lib/supabase-admin'
 import { formatDate } from '@/lib/utils'
 import { BackButton } from '@/components/navigation-buttons'
+import { PostgrestError } from '@supabase/supabase-js'
+import { CopyLinkButton } from '@/components/copy-link-button'
 
 export const revalidate = 0 // No caching for shared shuffle pages
 
@@ -39,38 +41,82 @@ export default async function SharedShufflePage({ params }: PageProps) {
   const supabase = await createClient()
   console.log('Attempting to fetch shuffle with code:', code)
 
+  // Try the verification API first for diagnostics
+  try {
+    const verifyResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/shuffle/verify?code=${code}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    if (verifyResponse.ok) {
+      const verifyData = await verifyResponse.json()
+      console.log('Verification API response:', verifyData)
+
+      // If the API tells us the shuffle doesn't exist, show detailed diagnostics and redirect
+      if (!verifyData.exists) {
+        console.log('Verification API confirms shuffle does not exist:')
+        console.log('Total shuffles in database:', verifyData.diagnostics.totalShuffles)
+        console.log('Shuffles with share codes:', verifyData.diagnostics.shufflesWithShareCodes)
+        console.log('Code appears to be a UUID:', verifyData.diagnostics.isUuid)
+
+        // Redirect to not found page with detailed diagnostics
+        redirect('/shuffle-not-found')
+      }
+
+      // If the API confirms the shuffle exists, we can proceed with confidence to fetch the full data
+      console.log('Verification API confirms shuffle exists')
+    }
+  } catch (error) {
+    console.error('Error using verification API:', error)
+    // Continue with regular approach if API fails
+  }
+
   // Initialize variables
   let shuffle: any = null
   let error: any = null
+  let detailedDiagnostics = {
+    byId: { attempted: false, found: false, error: null as PostgrestError | null },
+    byShareCode: { attempted: false, found: false, error: null as PostgrestError | null },
+    countCheck: { attempted: false, count: 0 },
+  }
 
-  // If we haven't found it yet, try the normal approach
-  if (!shuffle) {
-    // First try finding by ID without restrictions
-    let { data: shuffleData, error: queryError } = await supabase
+  // First try finding by ID without restrictions
+  detailedDiagnostics.byId.attempted = true
+  let { data: shuffleData, error: queryError } = await supabase
+    .from('shuffles')
+    .select('*')
+    .eq('id', code)
+    .single()
+
+  shuffle = shuffleData
+  error = queryError
+  detailedDiagnostics.byId.found = !!shuffleData
+  detailedDiagnostics.byId.error = queryError
+
+  // Show detailed error for debugging
+  if (error) {
+    console.log('Error finding by ID:', error)
+
+    // Diagnostic query to see if shuffle exists at all
+    detailedDiagnostics.countCheck.attempted = true
+    const { count } = await supabase
       .from('shuffles')
-      .select('*')
+      .select('*', { count: 'exact', head: true })
       .eq('id', code)
-      .single()
 
-    shuffle = shuffleData
-    error = queryError
-
-    // Show detailed error for debugging
-    if (error) {
-      console.log('Error finding by ID:', error)
-
-      // Diagnostic query to see if shuffle exists at all
-      const { count } = await supabase
-        .from('shuffles')
-        .select('*', { count: 'exact', head: true })
-        .eq('id', code)
-
-      console.log(`Database has ${count || 0} shuffles with this ID`)
-    }
+    detailedDiagnostics.countCheck.count = count || 0
+    console.log(`Database has ${count || 0} shuffles with this ID`)
   }
 
   // If not found by ID, try by share_code without restrictions
   if (error || !shuffle) {
+    detailedDiagnostics.byShareCode.attempted = true
     console.log('Not found by id, trying by share_code')
     const { data: shuffleByShareCode, error: shareCodeError } = await supabase
       .from('shuffles')
@@ -78,8 +124,34 @@ export default async function SharedShufflePage({ params }: PageProps) {
       .eq('share_code', code)
       .single()
 
+    detailedDiagnostics.byShareCode.found = !!shuffleByShareCode
+    detailedDiagnostics.byShareCode.error = shareCodeError
+
     if (shareCodeError || !shuffleByShareCode) {
       console.error('Shuffle not found by share_code either:', shareCodeError)
+      console.log('Detailed diagnostics:', JSON.stringify(detailedDiagnostics, null, 2))
+
+      // Check if the code looks like a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const isUuid = uuidRegex.test(code)
+
+      // Log additional diagnostic info
+      console.log(`Code format appears to be ${isUuid ? 'a valid UUID' : 'not a UUID pattern'}.`)
+
+      // Additional diagnostic query - check if ANY shuffles exist
+      const { count: totalShuffles } = await supabase
+        .from('shuffles')
+        .select('*', { count: 'exact', head: true })
+
+      console.log(`Total shuffles in database: ${totalShuffles || 0}`)
+
+      // Check if any shuffles have share_codes set
+      const { count: shufflesWithShareCodes } = await supabase
+        .from('shuffles')
+        .select('*', { count: 'exact', head: true })
+        .not('share_code', 'is', null)
+
+      console.log(`Shuffles with share_codes: ${shufflesWithShareCodes || 0}`)
 
       // Use redirect to a dedicated error page without client-side handlers
       redirect('/shuffle-not-found')
@@ -99,14 +171,30 @@ export default async function SharedShufflePage({ params }: PageProps) {
 
   // Check if the shuffle should be viewable
   if (shuffle) {
-    // For shuffle by ID, it must be saved
-    if (code === shuffle.id && !shuffle.is_saved) {
-      console.log('Found shuffle by ID but it is not saved')
+    // For shuffle by ID, it must be either saved by this user or shared
+    if (code === shuffle.id && !shuffle.is_shared) {
+      console.log('Found shuffle by ID but it is not shared')
+
+      // Get the current authenticated user
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      // If not shared, only allow access if this is the user's own shuffle
+      if (!session?.user || session.user.id !== shuffle.user_id) {
+        console.log('User does not have permission to view this private shuffle')
+        console.log('Authenticated user:', session?.user?.id)
+        console.log('Shuffle owner:', shuffle.user_id)
+        redirect('/shuffle-not-found')
+      } else {
+        console.log('User is viewing their own private shuffle by ID')
+      }
     }
 
     // For shuffle by share_code, it must be shared
     if (code === shuffle.share_code && !shuffle.is_shared) {
       console.log('Found shuffle by share_code but it is not shared')
+      redirect('/shuffle-not-found')
     }
   }
 
@@ -116,21 +204,31 @@ export default async function SharedShufflePage({ params }: PageProps) {
     redirect('/')
   }
 
-  // Increment the view count
-  await supabaseAdmin.from('shared_shuffles').upsert(
-    {
-      shuffle_id: shuffle.id,
-      views: 1, // Will be incremented by the function
-      last_viewed_at: new Date().toISOString(),
-    },
-    {
-      onConflict: 'shuffle_id',
-    }
-  )
+  // Increment the view count using a single atomic operation
+  try {
+    // First ensure the shared_shuffles record exists
+    await supabaseAdmin.from('shared_shuffles').upsert(
+      {
+        shuffle_id: shuffle.id,
+        views: 0, // This will only be used for new records
+        last_viewed_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'shuffle_id',
+        ignoreDuplicates: true, // Don't update anything if the record exists
+      }
+    )
 
-  await supabaseAdmin.rpc('increment_shared_shuffle_views', {
-    shuffle_id_param: shuffle.id,
-  })
+    // Then call the RPC function to atomically increment the counter
+    await supabaseAdmin.rpc('increment_shared_shuffle_views', {
+      shuffle_id_param: shuffle.id,
+    })
+
+    console.log('View count incremented successfully')
+  } catch (viewError) {
+    // Non-critical error - log but continue
+    console.error('Error incrementing view count:', viewError)
+  }
 
   // Get current view count
   const { data: sharedData } = await supabase
@@ -244,6 +342,7 @@ export default async function SharedShufflePage({ params }: PageProps) {
 
           <div className='mt-8 flex justify-center'>
             <BackButton />
+            <CopyLinkButton url={`${process.env.NEXT_PUBLIC_APP_URL || ''}/shared/${code}`} />
           </div>
         </CardContent>
       </Card>

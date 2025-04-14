@@ -90,11 +90,21 @@ export function logError(error: AppError): void {
 
 // Display user-friendly error toast
 export function displayErrorToast(error: AppError): void {
-  // Server-side fallback for toast (no actions)
-  const variant =
-    error.severity === ErrorSeverity.CRITICAL || error.severity === ErrorSeverity.ERROR
-      ? 'destructive'
-      : 'default'
+  // Determine variant based on error severity
+  let variant: 'destructive' | 'warning' | 'info' = 'destructive'
+
+  switch (error.severity) {
+    case ErrorSeverity.CRITICAL:
+    case ErrorSeverity.ERROR:
+      variant = 'destructive'
+      break
+    case ErrorSeverity.WARNING:
+      variant = 'warning'
+      break
+    case ErrorSeverity.INFO:
+      variant = 'info'
+      break
+  }
 
   toast({
     title: getErrorTitle(error),

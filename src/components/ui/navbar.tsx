@@ -105,12 +105,29 @@ export function Navbar({ className }: NavbarProps) {
                   href={item.path}
                   className={cn(
                     'px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex-shrink-0',
+                    // Special styling for the Shuffle text
+                    item.name === 'Shuffle' &&
+                      'font-bold shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all',
                     pathname === item.path
-                      ? 'text-primary border-b-2 border-primary'
+                      ? item.name === 'Shuffle'
+                        ? 'border-b-2 border-primary drop-shadow-[0_0_10px_rgba(147,51,234,0.5)]'
+                        : 'text-primary border-b-2 border-primary'
+                      : item.name === 'Shuffle'
+                      ? ''
                       : 'text-muted-foreground hover:text-foreground focus-effect'
                   )}
                 >
-                  {item.name}
+                  {item.name === 'Shuffle' ? (
+                    <span className='relative group'>
+                      <span className='relative z-10 font-bold tracking-wider text-white drop-shadow-[0_0_3px_rgba(255,255,255,0.7)] animate-glow-text-subtle'>
+                        Shuffle
+                      </span>
+                      <span className='absolute inset-0 -z-10 blur-sm bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-80 rounded-md group-hover:opacity-90 group-hover:blur-md transition-all'></span>
+                      <span className='absolute -inset-1 -z-20 scale-90 opacity-30 group-hover:opacity-40 group-hover:scale-110 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30 blur-xl rounded-lg transition-all duration-300'></span>
+                    </span>
+                  ) : (
+                    item.name
+                  )}
                 </Link>
               ))}
               <div className='w-2 flex-shrink-0'></div>

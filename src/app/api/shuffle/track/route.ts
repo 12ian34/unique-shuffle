@@ -5,6 +5,7 @@ import supabaseAdmin from '@/lib/supabase-admin'
 import { Achievement } from '@/types'
 import { createClient as createBrowserClient } from '@supabase/supabase-js'
 import { User } from '@supabase/supabase-js'
+import { generateRandomString } from '@/lib/utils'
 import {
   ErrorType,
   ErrorSeverity,
@@ -165,6 +166,8 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         cards,
+        is_shared: true, // Mark as shared so it can be viewed by ID
+        share_code: generateRandomString(10), // Generate a share code for easy sharing
       })
       .select()
       .single()

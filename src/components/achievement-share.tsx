@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Achievement } from '@/types'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
+import { ToastButton } from '@/components/ui/toast-button'
 
 interface AchievementShareProps {
   achievement: Achievement
@@ -128,13 +129,28 @@ export function AchievementShare({ achievement, count, total }: AchievementShare
       toast({
         title: 'Copied to clipboard!',
         description: 'Share your achievement with friends.',
+        variant: 'success',
       })
       setOpen(false)
     } catch (error) {
       console.error('Failed to copy:', error)
       toast({
         title: 'Failed to copy',
-        description: 'Please try again or copy manually.',
+        description: (
+          <div className='flex flex-col gap-2'>
+            <p>Please try again or copy manually.</p>
+            <ToastButton
+              href='#'
+              variant='destructive'
+              onClick={(e) => {
+                e.preventDefault()
+                copyToClipboard()
+              }}
+            >
+              Try Again
+            </ToastButton>
+          </div>
+        ),
         variant: 'destructive',
       })
     }

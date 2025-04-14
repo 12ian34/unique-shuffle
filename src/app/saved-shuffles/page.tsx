@@ -8,12 +8,16 @@ import { useRouter } from 'next/navigation'
 import { formatDate, generateRandomString } from '@/lib/utils'
 import { DbShuffle } from '@/types'
 import { useToast } from '@/components/ui/use-toast'
+import { Copy, Share2 } from 'lucide-react'
+import { ToastButton } from '@/components/ui/toast-button'
 
 export default function SavedShufflesPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [sharingInProgress, setSharingInProgress] = useState<Record<string, boolean>>({})
+  const [deletingInProgress, setDeletingInProgress] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function fetchSavedShuffles() {
@@ -50,59 +54,141 @@ export default function SavedShufflesPage() {
   }, [router])
 
   const handleShareShuffle = async (shuffleId: string) => {
+    // Prevent sharing if already in progress
+    if (sharingInProgress[shuffleId]) return
+
     try {
-      // First check if the shuffle already has a share code
-      const { data: existingShuffle } = await supabase
-        .from('shuffles')
-        .select('share_code')
-        .eq('id', shuffleId)
-        .single()
+      // Set sharing state for this specific shuffle
+      setSharingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
 
-      // Generate a share code if one doesn't exist
-      const shareCode = existingShuffle?.share_code || generateRandomString(10)
+      // Use the shared API endpoint for sharing shuffles
+      const response = await fetch('/api/shuffle/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shuffleId }),
+      })
 
-      // Update the shuffle with is_shared: true and the share_code
-      await supabase
-        .from('shuffles')
-        .update({
-          is_shared: true,
-          share_code: shareCode,
-        })
-        .eq('id', shuffleId)
+      if (!response.ok) {
+        throw new Error('Failed to share shuffle')
+      }
 
-      console.log('Shuffle shared with code:', shareCode)
+      const data = await response.json()
+      console.log('Shuffle shared with code:', data.shareCode)
 
       // Update local state
       setSavedShuffles(
         savedShuffles.map((s) =>
-          s.id === shuffleId ? { ...s, is_shared: true, share_code: shareCode } : s
+          s.id === shuffleId ? { ...s, is_shared: true, share_code: data.shareCode } : s
         )
       )
 
       toast({
         title: 'Shuffle shared',
         description: 'Your shuffle can now be shared with others.',
+        variant: 'success',
       })
     } catch (error) {
       console.error('Error sharing shuffle:', error)
       toast({
         title: 'Error sharing shuffle',
-        description: 'There was a problem sharing your shuffle.',
+        description: (
+          <div className='flex flex-col gap-2'>
+            <p>There was a problem sharing your shuffle.</p>
+            <ToastButton
+              href='#'
+              variant='destructive'
+              onClick={(e) => {
+                e.preventDefault()
+                handleShareShuffle(shuffleId)
+              }}
+            >
+              Try Again
+            </ToastButton>
+          </div>
+        ),
         variant: 'destructive',
       })
+    } finally {
+      // Clear sharing state when done
+      setSharingInProgress((prev) => ({ ...prev, [shuffleId]: false }))
     }
   }
 
   const handleDeleteShuffle = async (shuffleId: string) => {
+    // Ask for confirmation before removing
+    if (!window.confirm('Are you sure you want to remove this shuffle from your saved shuffles?')) {
+      return
+    }
+
+    // Prevent multiple clicks
+    if (deletingInProgress[shuffleId]) return
+
     try {
-      // Update the shuffle to mark it as not saved
+      // Set deleting state for this specific shuffle
+      setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
+
+      // Only update is_saved flag to false
+      // We're not changing the is_shared flag, so shared links will still work
       await supabase.from('shuffles').update({ is_saved: false }).eq('id', shuffleId)
 
-      // Remove from local state
+      // Update local state
       setSavedShuffles(savedShuffles.filter((s) => s.id !== shuffleId))
+
+      toast({
+        title: 'Shuffle removed',
+        description: 'The shuffle has been removed from your saved shuffles.',
+        variant: 'success',
+      })
     } catch (error) {
-      console.error('Error deleting shuffle:', error)
+      console.error('Error removing shuffle:', error)
+      toast({
+        title: 'Error removing shuffle',
+        description: 'There was a problem removing this shuffle from your saved shuffles.',
+        variant: 'destructive',
+      })
+    } finally {
+      // Clear deleting state when done
+      setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: false }))
     }
+  }
+
+  // Add a function to handle copying the share URL
+  const copyShareUrl = (shareCode: string) => {
+    const shareUrl = `${window.location.origin}/shared/${shareCode}`
+    navigator.clipboard.writeText(shareUrl).then(
+      () => {
+        toast({
+          title: 'Copied to clipboard',
+          description: 'Share URL has been copied to your clipboard',
+          duration: 2000,
+          variant: 'info',
+        })
+      },
+      (err) => {
+        console.error('Could not copy text: ', err)
+        toast({
+          title: 'Failed to copy',
+          description: (
+            <div className='flex flex-col gap-2'>
+              <p>Please try again or copy the URL manually</p>
+              <ToastButton
+                href='#'
+                variant='destructive'
+                onClick={(e) => {
+                  e.preventDefault()
+                  copyShareUrl(shareCode)
+                }}
+              >
+                Try Again
+              </ToastButton>
+            </div>
+          ),
+          variant: 'destructive',
+        })
+      }
+    )
   }
 
   if (isLoading) {
@@ -158,7 +244,14 @@ export default function SavedShufflesPage() {
                         console.error('Error verifying shuffle:', checkError)
                         toast({
                           title: 'Error',
-                          description: 'This shuffle could not be found. It may have been deleted.',
+                          description: (
+                            <div className='flex flex-col gap-2'>
+                              <p>This shuffle could not be found. It may have been deleted.</p>
+                              <ToastButton href='/' variant='destructive'>
+                                Shuffle New Cards
+                              </ToastButton>
+                            </div>
+                          ),
                           variant: 'destructive',
                         })
                         return
@@ -179,13 +272,25 @@ export default function SavedShufflesPage() {
                     View
                   </Button>
 
-                  {!shuffle.is_shared && (
+                  {!shuffle.is_shared ? (
                     <Button
                       size='sm'
                       variant='outline'
                       onClick={() => handleShareShuffle(shuffle.id)}
+                      disabled={sharingInProgress[shuffle.id]}
                     >
-                      Share
+                      <Share2 className='h-4 w-4 mr-1' />
+                      {sharingInProgress[shuffle.id] ? 'Sharing...' : 'Share'}
+                    </Button>
+                  ) : (
+                    // Add copy button for already shared shuffles
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={() => copyShareUrl(shuffle.share_code || shuffle.id)}
+                    >
+                      <Copy className='h-4 w-4 mr-1' />
+                      Copy Link
                     </Button>
                   )}
 
@@ -194,8 +299,9 @@ export default function SavedShufflesPage() {
                     variant='outline'
                     className='text-destructive hover:bg-destructive/10'
                     onClick={() => handleDeleteShuffle(shuffle.id)}
+                    disabled={deletingInProgress[shuffle.id]}
                   >
-                    Remove
+                    {deletingInProgress[shuffle.id] ? 'Removing...' : 'Remove'}
                   </Button>
                 </div>
               </CardContent>

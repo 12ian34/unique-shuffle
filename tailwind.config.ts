@@ -58,9 +58,33 @@ const config: Config = {
           '50%': { transform: 'translateX(0)' },
           '75%': { transform: 'translateX(2px)' },
         },
+        'glow-pulse': {
+          '0%, 100%': {
+            textShadow:
+              '0 0 12px rgba(147, 51, 234, 0.7), 0 0 20px rgba(147, 51, 234, 0.5), 0 0 30px rgba(147, 51, 234, 0.3)',
+            transform: 'scale(1.01)',
+          },
+          '50%': {
+            textShadow:
+              '0 0 14px rgba(147, 51, 234, 0.9), 0 0 24px rgba(147, 51, 234, 0.7), 0 0 35px rgba(147, 51, 234, 0.5)',
+            transform: 'scale(1.03)',
+          },
+        },
+        'glow-pulse-subtle': {
+          '0%, 100%': {
+            textShadow: '0 0 4px rgba(255, 255, 255, 0.7), 0 0 8px rgba(147, 51, 234, 0.5)',
+            transform: 'scale(1)',
+          },
+          '50%': {
+            textShadow: '0 0 8px rgba(255, 255, 255, 0.9), 0 0 15px rgba(147, 51, 234, 0.7)',
+            transform: 'scale(1.01)',
+          },
+        },
       },
       animation: {
         'quick-shake': 'quick-shake 0.25s ease-in-out',
+        'glow-text': 'glow-pulse 2s ease-in-out infinite',
+        'glow-text-subtle': 'glow-pulse-subtle 2.5s ease-in-out infinite',
       },
     },
   },

@@ -86,6 +86,11 @@ CREATE POLICY "Anyone can view shared shuffles"
   ON public.shuffles FOR SELECT
   USING (is_shared = TRUE);
 
+-- Add a new policy to handle viewing shuffles by ID when shared or owned
+CREATE POLICY "Allow viewing by ID for shared or owned shuffles"
+  ON public.shuffles FOR SELECT
+  USING ((is_shared = TRUE) OR (is_saved = TRUE AND auth.uid() = user_id));
+
 -- Create policies for achievements table
 CREATE POLICY "Users can view their own achievements"
   ON public.achievements FOR SELECT
