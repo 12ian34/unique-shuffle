@@ -158,7 +158,7 @@ export default function HomePage() {
         // Show sign-in toast (only once per shuffle)
         dismiss() // Dismiss any existing toasts first
         toast({
-          title: 'Shuffle not saved',
+          title: 'shuffle not saved',
           description: (
             <div className='flex flex-col gap-2'>
               <p>login to save your shuffles and track achievements!</p>
@@ -170,7 +170,7 @@ export default function HomePage() {
                   router.push('/auth?tab=signup')
                 }}
               >
-                Create an account
+                create an account
               </ToastButton>
             </div>
           ),
@@ -355,10 +355,10 @@ export default function HomePage() {
   const handleSaveShuffle = async () => {
     if (!currentShuffleId || !isAuthenticated) {
       toast({
-        title: 'Cannot save shuffle',
+        title: 'cannot save shuffle',
         description: (
           <div className='flex flex-col gap-2'>
-            <p>Please sign in to save shuffles.</p>
+            <p>please sign in to save shuffles.</p>
             <ToastButton
               href='/auth?tab=signup'
               onClick={(e) => {
@@ -367,7 +367,7 @@ export default function HomePage() {
                 router.push('/auth?tab=signup')
               }}
             >
-              Sign up here
+              sign up here
             </ToastButton>
           </div>
         ),
@@ -399,10 +399,10 @@ export default function HomePage() {
       if (error) {
         console.error('Error saving shuffle:', error)
         toast({
-          title: 'Error saving shuffle',
+          title: 'error saving shuffle',
           description: (
             <div className='flex flex-col gap-2'>
-              <p>There was a problem saving your shuffle.</p>
+              <p>there was a problem saving your shuffle.</p>
               <ToastButton
                 href='#'
                 variant='destructive'
@@ -411,7 +411,7 @@ export default function HomePage() {
                   handleSaveShuffle()
                 }}
               >
-                Try Again
+                try again
               </ToastButton>
             </div>
           ),
@@ -420,8 +420,8 @@ export default function HomePage() {
       } else {
         setIsShuffleSaved(true)
         toast({
-          title: 'Shuffle saved',
-          description: 'Your shuffle has been saved to your profile.',
+          title: 'shuffle saved',
+          description: 'your shuffle has been saved to your profile.',
           variant: 'success',
         })
 
@@ -431,10 +431,10 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error saving shuffle:', error)
       toast({
-        title: 'Error saving shuffle',
+        title: 'error saving shuffle',
         description: (
           <div className='flex flex-col gap-2'>
-            <p>There was a problem saving your shuffle.</p>
+            <p>there was a problem saving your shuffle.</p>
             <ToastButton
               href='#'
               variant='destructive'
@@ -443,7 +443,7 @@ export default function HomePage() {
                 handleSaveShuffle()
               }}
             >
-              Try Again
+              try again
             </ToastButton>
           </div>
         ),
@@ -527,7 +527,7 @@ export default function HomePage() {
             <Card className='bg-primary/10 border-primary/20 card-hover'>
               <CardHeader>
                 <CardTitle>
-                  {isAuthenticated ? 'New Achievements Unlocked!' : 'Achievements Unlocked!'}
+                  {isAuthenticated ? 'new achievements unlocked!' : 'achievements unlocked!'}
                 </CardTitle>
                 <CardDescription>
                   {isAuthenticated
@@ -543,7 +543,7 @@ export default function HomePage() {
                       className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
                     >
                       <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm font-medium'>
-                        {isAuthenticated ? 'NEW' : 'EARNED'}
+                        {isAuthenticated ? 'new' : 'earned'}
                       </span>
                       <div>
                         <p className='font-medium'>{achievement.name}</p>
@@ -559,7 +559,7 @@ export default function HomePage() {
                       variant='default'
                       size='sm'
                     >
-                      Sign up to save achievements
+                      sign up to save achievements
                     </Button>
                   </div>
                 )}
@@ -570,9 +570,9 @@ export default function HomePage() {
           {previouslyUnlockedAchievements.length > 0 && (
             <Card className='bg-muted/30 border-muted card-hover'>
               <CardHeader>
-                <CardTitle>Achievements Found Again</CardTitle>
+                <CardTitle>achievements found again</CardTitle>
                 <CardDescription>
-                  You&apos;ve previously unlocked these achievements
+                  you&apos;ve previously unlocked these achievements
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -596,7 +596,7 @@ export default function HomePage() {
           <Card className='mx-auto card-hover'>
             <CardHeader>
               <div className='flex justify-between items-center'>
-                <CardTitle>Shuffled Deck</CardTitle>
+                <CardTitle>shuffled deck</CardTitle>
                 {isAuthenticated && (
                   <Button
                     variant='ghost'
@@ -608,12 +608,12 @@ export default function HomePage() {
                     {isShuffleSaved ? (
                       <>
                         <BookmarkFilledIcon className='h-4 w-4 text-primary' />
-                        <span>Saved</span>
+                        <span>saved</span>
                       </>
                     ) : (
                       <>
                         <BookmarkIcon className='h-4 w-4' />
-                        <span>{isSaving ? 'Saving...' : 'Save'}</span>
+                        <span>{isSaving ? 'saving...' : 'save'}</span>
                       </>
                     )}
                   </Button>

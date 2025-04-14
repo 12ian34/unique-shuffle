@@ -29,22 +29,22 @@ export function showErrorToast({ error }: ErrorToastProps): void {
       break
   }
 
-  let title = 'Error'
+  let title = 'error'
   switch (error.type) {
     case 'NETWORK':
-      title = 'Connection Error'
+      title = 'connection error'
       break
     case 'DATABASE':
-      title = 'Data Error'
+      title = 'data error'
       break
     case 'VALIDATION':
-      title = 'Invalid Input'
+      title = 'invalid input'
       break
     case 'AUTH':
-      title = 'Authentication Error'
+      title = 'authentication error'
       break
     case 'SHUFFLE':
-      title = 'Shuffle Error'
+      title = 'shuffle error'
       break
   }
 
@@ -65,7 +65,7 @@ export function showErrorToast({ error }: ErrorToastProps): void {
               error.recoveryAction?.()
             }}
           >
-            Retry
+            retry
           </ToastButton>
         </div>
       ),

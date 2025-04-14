@@ -9,8 +9,11 @@ import { UserStatsProvider } from '@/components/user-stats-provider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Unique Shuffle',
-  description: 'Shuffle playing cards, discover patterns, and earn achievements',
+  title: 'unique shuffle',
+  description: 'shuffle playing cards, discover patterns, and earn achievements',
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

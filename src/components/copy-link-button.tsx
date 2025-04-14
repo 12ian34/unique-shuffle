@@ -12,8 +12,8 @@ export function CopyLinkButton({ url }: { url: string }) {
     navigator.clipboard.writeText(url).then(
       () => {
         toast({
-          title: 'Copied to clipboard',
-          description: 'Share URL has been copied to your clipboard',
+          title: 'copied to clipboard',
+          description: 'share url has been copied to your clipboard',
           duration: 2000,
           variant: 'info',
         })
@@ -21,10 +21,10 @@ export function CopyLinkButton({ url }: { url: string }) {
       (err) => {
         console.error('Could not copy text: ', err)
         toast({
-          title: 'Failed to copy',
+          title: 'failed to copy',
           description: (
             <div className='flex flex-col gap-2'>
-              <p>Please try again or copy the URL manually</p>
+              <p>please try again or copy the url manually</p>
               <ToastButton
                 href='#'
                 variant='destructive'
@@ -33,7 +33,7 @@ export function CopyLinkButton({ url }: { url: string }) {
                   copyToClipboard()
                 }}
               >
-                Try Again
+                try again
               </ToastButton>
             </div>
           ),
@@ -46,7 +46,7 @@ export function CopyLinkButton({ url }: { url: string }) {
   return (
     <Button variant='outline' size='sm' onClick={copyToClipboard} className='ml-2'>
       <Copy className='h-4 w-4 mr-1' />
-      Copy Link
+      copy link
     </Button>
   )
 }

@@ -7,18 +7,18 @@ import { toast } from '@/components/ui/use-toast'
 export function ToastExamples() {
   const showDefaultToast = () => {
     toast({
-      title: 'Default Toast',
-      description: 'This is the default toast with gradient styling',
+      title: 'default toast',
+      description: 'this is the default toast with gradient styling',
     })
   }
 
   const showDefaultWithButton = () => {
     toast({
-      title: 'Default with Button',
+      title: 'default with button',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>This toast includes a stylish button</p>
-          <ToastButton href='/example'>Action Button</ToastButton>
+          <p>this toast includes a stylish button</p>
+          <ToastButton href='/example'>action button</ToastButton>
         </div>
       ),
     })
@@ -26,20 +26,20 @@ export function ToastExamples() {
 
   const showDestructiveToast = () => {
     toast({
-      title: 'Error Toast',
-      description: 'Something went wrong with your request',
+      title: 'error toast',
+      description: 'something went wrong with your request',
       variant: 'destructive',
     })
   }
 
   const showDestructiveWithButton = () => {
     toast({
-      title: 'Error with Button',
+      title: 'error with button',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>There was an error with your request</p>
+          <p>there was an error with your request</p>
           <ToastButton href='/help' variant='destructive'>
-            Get Help
+            get help
           </ToastButton>
         </div>
       ),
@@ -49,20 +49,20 @@ export function ToastExamples() {
 
   const showSuccessToast = () => {
     toast({
-      title: 'Success Toast',
-      description: 'Your changes have been saved successfully',
+      title: 'success toast',
+      description: 'your changes have been saved successfully',
       variant: 'success',
     })
   }
 
   const showSuccessWithButton = () => {
     toast({
-      title: 'Success with Button',
+      title: 'success with button',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>Your changes have been saved successfully</p>
+          <p>your changes have been saved successfully</p>
           <ToastButton href='/view' variant='success'>
-            View Changes
+            view changes
           </ToastButton>
         </div>
       ),
@@ -72,20 +72,20 @@ export function ToastExamples() {
 
   const showWarningToast = () => {
     toast({
-      title: 'Warning Toast',
-      description: 'Your session will expire in 5 minutes',
+      title: 'warning toast',
+      description: 'your session will expire in 5 minutes',
       variant: 'warning',
     })
   }
 
   const showWarningWithButton = () => {
     toast({
-      title: 'Warning with Button',
+      title: 'warning with button',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>Your session will expire in 5 minutes</p>
+          <p>your session will expire in 5 minutes</p>
           <ToastButton href='/extend' variant='warning'>
-            Extend Session
+            extend session
           </ToastButton>
         </div>
       ),
@@ -95,20 +95,20 @@ export function ToastExamples() {
 
   const showInfoToast = () => {
     toast({
-      title: 'Info Toast',
-      description: 'You have new notifications to review',
+      title: 'info toast',
+      description: 'you have new notifications to review',
       variant: 'info',
     })
   }
 
   const showInfoWithButton = () => {
     toast({
-      title: 'Info with Button',
+      title: 'info with button',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>You have new notifications to review</p>
+          <p>you have new notifications to review</p>
           <ToastButton href='/notifications' variant='info'>
-            View Notifications
+            view notifications
           </ToastButton>
         </div>
       ),
@@ -118,11 +118,11 @@ export function ToastExamples() {
 
   const showAuthToast = () => {
     toast({
-      title: 'Sign in Required',
+      title: 'sign in required',
       description: (
         <div className='flex flex-col gap-2'>
-          <p>Sign in to save your progress and unlock achievements!</p>
-          <ToastButton href='/auth?tab=signup'>Create an account</ToastButton>
+          <p>sign in to save your progress and unlock achievements!</p>
+          <ToastButton href='/auth?tab=signup'>create an account</ToastButton>
         </div>
       ),
       duration: 5000,
@@ -133,93 +133,93 @@ export function ToastExamples() {
     <div className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Default Toasts</h3>
+          <h3 className='text-lg font-medium'>default toasts</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showDefaultToast} variant='outline'>
-              Show Default Toast
+              show default toast
             </Button>
             <Button onClick={showDefaultWithButton} variant='outline'>
-              Default with Button
+              default with button
             </Button>
           </div>
         </div>
 
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Destructive Toasts</h3>
+          <h3 className='text-lg font-medium'>destructive toasts</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showDestructiveToast} variant='outline'>
-              Show Error Toast
+              show error toast
             </Button>
             <Button onClick={showDestructiveWithButton} variant='outline'>
-              Error with Button
+              error with button
             </Button>
           </div>
         </div>
 
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Success Toasts</h3>
+          <h3 className='text-lg font-medium'>success toasts</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showSuccessToast} variant='outline'>
-              Show Success Toast
+              show success toast
             </Button>
             <Button onClick={showSuccessWithButton} variant='outline'>
-              Success with Button
+              success with button
             </Button>
           </div>
         </div>
 
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Warning Toasts</h3>
+          <h3 className='text-lg font-medium'>warning toasts</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showWarningToast} variant='outline'>
-              Show Warning Toast
+              show warning toast
             </Button>
             <Button onClick={showWarningWithButton} variant='outline'>
-              Warning with Button
+              warning with button
             </Button>
           </div>
         </div>
 
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Info Toasts</h3>
+          <h3 className='text-lg font-medium'>info toasts</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showInfoToast} variant='outline'>
-              Show Info Toast
+              show info toast
             </Button>
             <Button onClick={showInfoWithButton} variant='outline'>
-              Info with Button
+              info with button
             </Button>
           </div>
         </div>
 
         <div className='space-y-2'>
-          <h3 className='text-lg font-medium'>Auth Toast</h3>
+          <h3 className='text-lg font-medium'>auth toast</h3>
           <div className='flex flex-col gap-2'>
             <Button onClick={showAuthToast} variant='outline'>
-              Show Auth Toast
+              show auth toast
             </Button>
           </div>
         </div>
       </div>
 
       <div className='mt-8 p-4 bg-muted rounded-lg'>
-        <h3 className='text-lg font-medium mb-2'>Usage Examples</h3>
+        <h3 className='text-lg font-medium mb-2'>usage examples</h3>
         <pre className='text-xs overflow-auto p-2 bg-background/60 rounded-md'>
           {`// Basic toast
 toast({
-  title: 'Toast Title',
-  description: 'Toast description text',
+  title: 'toast title',
+  description: 'toast description text',
   variant: 'default' // or 'success', 'destructive', 'warning', 'info'
 })
 
 // Toast with button
 toast({
-  title: 'Toast with Button',
+  title: 'toast with button',
   description: (
     <div className='flex flex-col gap-2'>
-      <p>Toast description text</p>
+      <p>toast description text</p>
       <ToastButton href='/path' variant='success'>
-        Button Text
+        button text
       </ToastButton>
     </div>
   ),

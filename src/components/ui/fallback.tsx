@@ -14,8 +14,8 @@ interface FallbackProps {
  * A fallback UI component for when data cannot be loaded
  */
 export function Fallback({
-  title = 'Unable to load data',
-  message = 'There was a problem loading this content.',
+  title = 'unable to load data',
+  message = 'there was a problem loading this content.',
   icon = <AlertTriangle className='h-10 w-10 text-yellow-500' />,
   onRetry,
   className,
@@ -38,7 +38,7 @@ export function Fallback({
               className='inline-flex items-center gap-1 text-xs p-1 px-2 rounded-sm hover:bg-muted'
             >
               <RefreshCw className='h-3 w-3' />
-              Retry
+              retry
             </button>
           )}
         </div>
@@ -62,7 +62,7 @@ export function Fallback({
           className='inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
         >
           <RefreshCw className='h-4 w-4' />
-          Try Again
+          try again
         </button>
       )}
     </div>

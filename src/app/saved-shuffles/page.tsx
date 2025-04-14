@@ -84,17 +84,17 @@ export default function SavedShufflesPage() {
       )
 
       toast({
-        title: 'Shuffle shared',
-        description: 'Your shuffle can now be shared with others.',
+        title: 'shuffle shared',
+        description: 'your shuffle can now be shared with others.',
         variant: 'success',
       })
     } catch (error) {
       console.error('Error sharing shuffle:', error)
       toast({
-        title: 'Error sharing shuffle',
+        title: 'error sharing shuffle',
         description: (
           <div className='flex flex-col gap-2'>
-            <p>There was a problem sharing your shuffle.</p>
+            <p>there was a problem sharing your shuffle.</p>
             <ToastButton
               href='#'
               variant='destructive'
@@ -103,7 +103,7 @@ export default function SavedShufflesPage() {
                 handleShareShuffle(shuffleId)
               }}
             >
-              Try Again
+              try again
             </ToastButton>
           </div>
         ),
@@ -117,7 +117,7 @@ export default function SavedShufflesPage() {
 
   const handleDeleteShuffle = async (shuffleId: string) => {
     // Ask for confirmation before removing
-    if (!window.confirm('Are you sure you want to remove this shuffle from your saved shuffles?')) {
+    if (!window.confirm('are you sure you want to remove this shuffle from your saved shuffles?')) {
       return
     }
 
@@ -136,15 +136,15 @@ export default function SavedShufflesPage() {
       setSavedShuffles(savedShuffles.filter((s) => s.id !== shuffleId))
 
       toast({
-        title: 'Shuffle removed',
-        description: 'The shuffle has been removed from your saved shuffles.',
+        title: 'shuffle removed',
+        description: 'the shuffle has been removed from your saved shuffles.',
         variant: 'success',
       })
     } catch (error) {
       console.error('Error removing shuffle:', error)
       toast({
-        title: 'Error removing shuffle',
-        description: 'There was a problem removing this shuffle from your saved shuffles.',
+        title: 'error removing shuffle',
+        description: 'there was a problem removing this shuffle from your saved shuffles.',
         variant: 'destructive',
       })
     } finally {
@@ -159,8 +159,8 @@ export default function SavedShufflesPage() {
     navigator.clipboard.writeText(shareUrl).then(
       () => {
         toast({
-          title: 'Copied to clipboard',
-          description: 'Share URL has been copied to your clipboard',
+          title: 'copied to clipboard',
+          description: 'share url has been copied to your clipboard',
           duration: 2000,
           variant: 'info',
         })
@@ -168,10 +168,10 @@ export default function SavedShufflesPage() {
       (err) => {
         console.error('Could not copy text: ', err)
         toast({
-          title: 'Failed to copy',
+          title: 'failed to copy',
           description: (
             <div className='flex flex-col gap-2'>
-              <p>Please try again or copy the URL manually</p>
+              <p>please try again or copy the url manually</p>
               <ToastButton
                 href='#'
                 variant='destructive'
@@ -180,7 +180,7 @@ export default function SavedShufflesPage() {
                   copyShareUrl(shareCode)
                 }}
               >
-                Try Again
+                try again
               </ToastButton>
             </div>
           ),
@@ -191,19 +191,19 @@ export default function SavedShufflesPage() {
   }
 
   if (isLoading) {
-    return <div className='text-center py-12'>Loading saved shuffles...</div>
+    return <div className='text-center py-12'>loading saved shuffles...</div>
   }
 
   return (
     <div className='space-y-8'>
       <div className='text-center max-w-2xl mx-auto'>
-        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Saved Shuffles</h1>
-        <p className='mt-4 text-muted-foreground'>View and manage all your saved shuffles</p>
+        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>saved shuffles</h1>
+        <p className='mt-4 text-muted-foreground'>view and manage all your saved shuffles</p>
       </div>
 
       {savedShuffles.length === 0 ? (
         <div className='text-center py-12 bg-muted/20 rounded-md'>
-          <p className='text-muted-foreground mb-4'>You haven&apos;t saved any shuffles yet.</p>
+          <p className='text-muted-foreground mb-4'>you haven&apos;t saved any shuffles yet.</p>
           <Button onClick={() => router.push('/')}>shuffle!</Button>
         </div>
       ) : (
@@ -211,7 +211,7 @@ export default function SavedShufflesPage() {
           {savedShuffles.map((shuffle) => (
             <Card key={shuffle.id}>
               <CardHeader className='pb-2'>
-                <CardTitle className='text-lg'>Saved Shuffle</CardTitle>
+                <CardTitle className='text-lg'>saved shuffle</CardTitle>
                 <CardDescription>{formatDate(shuffle.created_at)}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -223,8 +223,8 @@ export default function SavedShufflesPage() {
                       // Check if it has a valid ID
                       if (!shuffle.id) {
                         toast({
-                          title: 'Error',
-                          description: 'This shuffle cannot be viewed because it has no ID.',
+                          title: 'error',
+                          description: 'this shuffle cannot be viewed because it has no id.',
                           variant: 'destructive',
                         })
                         return
@@ -240,12 +240,12 @@ export default function SavedShufflesPage() {
                       if (checkError || !checkResult) {
                         console.error('Error verifying shuffle:', checkError)
                         toast({
-                          title: 'Error',
+                          title: 'error',
                           description: (
                             <div className='flex flex-col gap-2'>
-                              <p>This shuffle could not be found. It may have been deleted.</p>
+                              <p>this shuffle could not be found. it may have been deleted.</p>
                               <ToastButton href='/' variant='destructive'>
-                                Shuffle New Cards
+                                shuffle new cards
                               </ToastButton>
                             </div>
                           ),
@@ -265,7 +265,7 @@ export default function SavedShufflesPage() {
                       router.push(`/shared/${shuffle.id}`)
                     }}
                   >
-                    View
+                    view
                   </Button>
 
                   {!shuffle.is_shared ? (
@@ -276,7 +276,7 @@ export default function SavedShufflesPage() {
                       disabled={sharingInProgress[shuffle.id]}
                     >
                       <Share2 className='h-4 w-4 mr-1' />
-                      {sharingInProgress[shuffle.id] ? 'Sharing...' : 'Share'}
+                      {sharingInProgress[shuffle.id] ? 'sharing...' : 'share'}
                     </Button>
                   ) : (
                     // Add copy button for already shared shuffles
@@ -286,7 +286,7 @@ export default function SavedShufflesPage() {
                       onClick={() => copyShareUrl(shuffle.share_code || shuffle.id)}
                     >
                       <Copy className='h-4 w-4 mr-1' />
-                      Copy Link
+                      copy link
                     </Button>
                   )}
 
@@ -297,7 +297,7 @@ export default function SavedShufflesPage() {
                     onClick={() => handleDeleteShuffle(shuffle.id)}
                     disabled={deletingInProgress[shuffle.id]}
                   >
-                    {deletingInProgress[shuffle.id] ? 'Removing...' : 'Remove'}
+                    {deletingInProgress[shuffle.id] ? 'removing...' : 'remove'}
                   </Button>
                 </div>
               </CardContent>
@@ -308,7 +308,7 @@ export default function SavedShufflesPage() {
 
       <div className='text-center'>
         <Button variant='outline' onClick={() => router.push('/profile')}>
-          Back to Profile
+          back to profile
         </Button>
       </div>
     </div>

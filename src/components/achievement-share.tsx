@@ -127,18 +127,18 @@ export function AchievementShare({ achievement, count, total }: AchievementShare
     try {
       navigator.clipboard.writeText(shareText)
       toast({
-        title: 'Copied to clipboard!',
-        description: 'Share your achievement with friends.',
+        title: 'copied to clipboard!',
+        description: 'share your achievement with friends.',
         variant: 'success',
       })
       setOpen(false)
     } catch (error) {
       console.error('Failed to copy:', error)
       toast({
-        title: 'Failed to copy',
+        title: 'failed to copy',
         description: (
           <div className='flex flex-col gap-2'>
-            <p>Please try again or copy manually.</p>
+            <p>please try again or copy manually.</p>
             <ToastButton
               href='#'
               variant='destructive'
@@ -147,7 +147,7 @@ export function AchievementShare({ achievement, count, total }: AchievementShare
                 copyToClipboard()
               }}
             >
-              Try Again
+              try again
             </ToastButton>
           </div>
         ),
@@ -160,19 +160,19 @@ export function AchievementShare({ achievement, count, total }: AchievementShare
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='outline' size='sm'>
-          Share
+          share
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-80'>
         <div className='space-y-2'>
-          <h4 className='font-medium'>Share Achievement</h4>
+          <h4 className='font-medium'>share achievement</h4>
           <p className='text-sm text-muted-foreground'>
-            Copy this text to share your achievement on WhatsApp or other platforms.
+            copy this text to share your achievement on whatsapp or other platforms.
           </p>
           <Textarea readOnly value={shareText} className='min-h-[100px]' />
           <div className='flex justify-end'>
             <Button size='sm' onClick={copyToClipboard}>
-              Copy to Clipboard
+              copy to clipboard
             </Button>
           </div>
         </div>

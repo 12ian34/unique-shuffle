@@ -120,17 +120,17 @@ export function displayErrorToast(error: AppError): void {
 function getErrorTitle(error: AppError): string {
   switch (error.type) {
     case ErrorType.NETWORK:
-      return 'Connection Error'
+      return 'connection error'
     case ErrorType.DATABASE:
-      return 'Data Error'
+      return 'data error'
     case ErrorType.VALIDATION:
-      return 'Invalid Input'
+      return 'invalid input'
     case ErrorType.AUTH:
-      return 'Authentication Error'
+      return 'authentication error'
     case ErrorType.SHUFFLE:
-      return 'Shuffle Error'
+      return 'shuffle error'
     default:
-      return 'Error'
+      return 'error'
   }
 }
 

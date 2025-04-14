@@ -114,8 +114,8 @@ export default function ProfilePage() {
 
             setIsCreatingProfile(false)
             toast({
-              title: 'Profile Created',
-              description: 'Your profile has been successfully created!',
+              title: 'profile created',
+              description: 'your profile has been successfully created!',
             })
             return
           } else {
@@ -276,8 +276,8 @@ export default function ProfilePage() {
 
       if (!userData) {
         toast({
-          title: 'User not found',
-          description: 'No user found with this username.',
+          title: 'user not found',
+          description: 'no user found with this username.',
           variant: 'destructive',
         })
         return
@@ -289,8 +289,8 @@ export default function ProfilePage() {
 
       if (!session?.access_token) {
         toast({
-          title: 'Authentication Error',
-          description: 'You need to be logged in to send friend requests.',
+          title: 'authentication error',
+          description: 'you need to be logged in to send friend requests.',
           variant: 'destructive',
         })
         return
@@ -311,22 +311,22 @@ export default function ProfilePage() {
 
       if (response.ok) {
         toast({
-          title: 'Friend request sent',
-          description: 'Your friend request has been sent successfully.',
+          title: 'friend request sent',
+          description: 'your friend request has been sent successfully.',
         })
         setFriendUsername('')
       } else {
         toast({
-          title: 'Error',
-          description: result.error || 'Failed to send friend request.',
+          title: 'error',
+          description: result.error || 'failed to send friend request.',
           variant: 'destructive',
         })
       }
     } catch (error) {
       console.error('Error sending friend request:', error)
       toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        title: 'error',
+        description: 'something went wrong. please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -342,8 +342,8 @@ export default function ProfilePage() {
 
       if (!session?.access_token) {
         toast({
-          title: 'Authentication Error',
-          description: 'You need to be logged in to manage friend requests.',
+          title: 'authentication error',
+          description: 'you need to be logged in to manage friend requests.',
           variant: 'destructive',
         })
         return
@@ -363,11 +363,11 @@ export default function ProfilePage() {
 
       if (response.ok) {
         toast({
-          title: status === 'accepted' ? 'Friend request accepted' : 'Friend request rejected',
+          title: status === 'accepted' ? 'friend request accepted' : 'friend request rejected',
           description:
             status === 'accepted'
-              ? 'You are now friends with this user.'
-              : 'Friend request has been rejected.',
+              ? 'you are now friends with this user.'
+              : 'friend request has been rejected.',
         })
 
         // Update the UI by removing the request
@@ -382,16 +382,16 @@ export default function ProfilePage() {
         }
       } else {
         toast({
-          title: 'Error',
-          description: result.error || 'Failed to process friend request.',
+          title: 'error',
+          description: result.error || 'failed to process friend request.',
           variant: 'destructive',
         })
       }
     } catch (error) {
       console.error('Error handling friend request:', error)
       toast({
-        title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        title: 'error',
+        description: 'something went wrong. please try again.',
         variant: 'destructive',
       })
     }
@@ -407,8 +407,8 @@ export default function ProfilePage() {
     // Validate username
     if (newUsername.length > MAX_USERNAME_LENGTH) {
       toast({
-        title: 'Username too long',
-        description: `Username must be ${MAX_USERNAME_LENGTH} characters or less.`,
+        title: 'username too long',
+        description: `username must be ${MAX_USERNAME_LENGTH} characters or less.`,
         variant: 'destructive',
       })
       return
@@ -434,15 +434,15 @@ export default function ProfilePage() {
       setIsEditingUsername(false)
 
       toast({
-        title: 'Username updated',
-        description: 'Your username has been successfully updated.',
+        title: 'username updated',
+        description: 'your username has been successfully updated.',
         variant: 'success',
       })
     } catch (error: any) {
       console.error('Error updating username:', error)
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to update username. Please try again.',
+        title: 'error',
+        description: error.message || 'failed to update username. please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -467,8 +467,8 @@ export default function ProfilePage() {
     navigator.clipboard.writeText(shareUrl).then(
       () => {
         toast({
-          title: 'Copied to clipboard',
-          description: 'Share URL has been copied to your clipboard',
+          title: 'copied to clipboard',
+          description: 'share url has been copied to your clipboard',
           duration: 2000,
           variant: 'info',
         })
@@ -476,12 +476,12 @@ export default function ProfilePage() {
       (err) => {
         console.error('Could not copy text: ', err)
         toast({
-          title: 'Failed to copy',
+          title: 'failed to copy',
           description: (
             <div className='flex flex-col gap-2'>
-              <p>Please try again or copy the URL manually</p>
+              <p>please try again or copy the url manually</p>
               <ToastButton href='/support' variant='destructive'>
-                Get Help
+                get help
               </ToastButton>
             </div>
           ),
@@ -558,8 +558,14 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className='text-center py-12'>
-        <p className='text-muted-foreground mb-4'>you need to be logged in to view your profile.</p>
+      <div className='text-center'>
+        {error ? (
+          <p className='text-red-500 mb-4'>{error}</p>
+        ) : (
+          <p className='text-muted-foreground mb-4'>
+            you need to be logged in to view your profile.
+          </p>
+        )}
         <Button onClick={() => router.push('/auth')}>login</Button>
       </div>
     )
@@ -650,7 +656,7 @@ export default function ProfilePage() {
 
             <div className='flex justify-end mt-6'>
               <Button variant='outline' onClick={handleSignOut}>
-                Sign Out
+                sign out
               </Button>
             </div>
           </CardContent>
@@ -672,7 +678,7 @@ export default function ProfilePage() {
           <TabsContent value='saved'>
             {savedShuffles.length === 0 ? (
               <div className='text-center py-8 text-muted-foreground'>
-                You haven&apos;t saved any shuffles yet. Save interesting shuffles to view them
+                you haven&apos;t saved any shuffles yet. save interesting shuffles to view them
                 here!
               </div>
             ) : (
@@ -680,7 +686,7 @@ export default function ProfilePage() {
                 {savedShuffles.map((shuffle) => (
                   <Card key={shuffle.id}>
                     <CardHeader className='pb-2'>
-                      <CardTitle className='text-lg'>Saved Shuffle</CardTitle>
+                      <CardTitle className='text-lg'>saved shuffle</CardTitle>
                       <CardDescription>{formatDate(shuffle.created_at)}</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -692,8 +698,8 @@ export default function ProfilePage() {
                             // Check if it has a valid ID
                             if (!shuffle.id) {
                               toast({
-                                title: 'Error',
-                                description: 'This shuffle cannot be viewed because it has no ID.',
+                                title: 'error',
+                                description: 'this shuffle cannot be viewed because it has no id.',
                                 variant: 'destructive',
                               })
                               return
@@ -709,9 +715,9 @@ export default function ProfilePage() {
                             if (checkError || !checkResult) {
                               console.error('Error verifying shuffle:', checkError)
                               toast({
-                                title: 'Error',
+                                title: 'error',
                                 description:
-                                  'This shuffle could not be found. It may have been deleted.',
+                                  'this shuffle could not be found. it may have been deleted.',
                                 variant: 'destructive',
                               })
                               return
@@ -728,7 +734,7 @@ export default function ProfilePage() {
                             router.push(`/shared/${shuffle.id}`)
                           }}
                         >
-                          View
+                          view
                         </Button>
 
                         {!shuffle.is_shared ? (
@@ -796,7 +802,7 @@ export default function ProfilePage() {
                             ) : (
                               <Share2 className='h-4 w-4 mr-2' />
                             )}
-                            Share
+                            share
                           </Button>
                         ) : (
                           <Button
@@ -811,7 +817,7 @@ export default function ProfilePage() {
                             }}
                           >
                             <Copy className='h-4 w-4 mr-2' />
-                            Copy Link
+                            copy link
                           </Button>
                         )}
 
@@ -822,7 +828,7 @@ export default function ProfilePage() {
                           onClick={() => handleDeleteShuffle(shuffle.id)}
                           disabled={deletingInProgress[shuffle.id]}
                         >
-                          {deletingInProgress[shuffle.id] ? 'Removing...' : 'Remove'}
+                          {deletingInProgress[shuffle.id] ? 'removing...' : 'remove'}
                         </Button>
                       </div>
                     </CardContent>
@@ -834,7 +840,7 @@ export default function ProfilePage() {
             {savedShuffles.length > 0 && (
               <div className='text-center mt-8'>
                 <Button variant='outline' onClick={() => router.push('/saved-shuffles')}>
-                  View All Saved Shuffles
+                  view all saved shuffles
                 </Button>
               </div>
             )}
@@ -843,7 +849,7 @@ export default function ProfilePage() {
           <TabsContent value='achievements'>
             {userAchievements.length === 0 ? (
               <div className='text-center py-8 text-muted-foreground'>
-                You haven&apos;t earned any achievements yet. Start shuffling to unlock
+                you haven&apos;t earned any achievements yet. start shuffling to unlock
                 achievements!
               </div>
             ) : (
@@ -853,7 +859,7 @@ export default function ProfilePage() {
                     <CardHeader className='pb-2'>
                       <CardTitle className='text-lg'>{achievement.achievement_id}</CardTitle>
                       <CardDescription>
-                        Earned on {formatDate(achievement.achieved_at)}
+                        earned on {formatDate(achievement.achieved_at)}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -865,7 +871,7 @@ export default function ProfilePage() {
                             router.push(`/shared/${achievement.shuffle_id}`)
                           }}
                         >
-                          View Shuffle
+                          view shuffle
                         </Button>
                       )}
                     </CardContent>
@@ -877,7 +883,7 @@ export default function ProfilePage() {
             {userAchievements.length > 0 && (
               <div className='text-center mt-8'>
                 <Button variant='outline' onClick={() => router.push('/achievements')}>
-                  View All Achievements
+                  view all achievements
                 </Button>
               </div>
             )}
@@ -910,8 +916,8 @@ export default function ProfilePage() {
               {pendingRequests.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Friend Requests</CardTitle>
-                    <CardDescription>People who want to be your friend</CardDescription>
+                    <CardTitle>friend requests</CardTitle>
+                    <CardDescription>people who want to be your friend</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className='space-y-4'>
@@ -927,14 +933,14 @@ export default function ProfilePage() {
                               variant='outline'
                               onClick={() => handleFriendRequest(request.id, 'accepted')}
                             >
-                              Accept
+                              accept
                             </Button>
                             <Button
                               size='sm'
                               variant='outline'
                               onClick={() => handleFriendRequest(request.id, 'rejected')}
                             >
-                              Reject
+                              reject
                             </Button>
                           </div>
                         </div>
@@ -946,7 +952,7 @@ export default function ProfilePage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Friends</CardTitle>
+                  <CardTitle>friends</CardTitle>
                   <CardDescription>
                     {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
                   </CardDescription>
@@ -954,7 +960,7 @@ export default function ProfilePage() {
                 <CardContent>
                   {friends.length === 0 ? (
                     <div className='text-center py-4 text-muted-foreground'>
-                      You don&apos;t have any friends yet. Send requests to add friends.
+                      you don&apos;t have any friends yet. send requests to add friends.
                     </div>
                   ) : (
                     <div className='space-y-2'>
