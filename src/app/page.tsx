@@ -161,7 +161,7 @@ export default function HomePage() {
           title: 'Shuffle not saved',
           description: (
             <div className='flex flex-col gap-2'>
-              <p>Sign in to save your shuffles and track achievements!</p>
+              <p>login to save your shuffles and track achievements!</p>
               <ToastButton
                 href='/auth?tab=signup'
                 onClick={(e) => {
@@ -489,9 +489,9 @@ export default function HomePage() {
     <div className='space-y-8 w-full overflow-x-hidden'>
       <div className='text-center max-w-2xl mx-auto'>
         <p className='text-lg text-muted-foreground mb-6 break-all'>
-          There is a 1 in
+          there is a 1 in
           80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
-          chance that anyone has shuffled this before. It&apos;s probably unique:
+          chance that anyone has shuffled this before. it&apos;s probably unique...
         </p>
         <div className='flex justify-center'>
           <Button
@@ -501,7 +501,7 @@ export default function HomePage() {
             className='shadow-lg hover:shadow-primary/20 transition-all duration-300 relative group'
           >
             <span className='relative z-[5] font-bold tracking-wider animate-glow-text-subtle'>
-              {isShuffling ? 'Shuffling...' : 'Shuffle Cards'}
+              {isShuffling ? 'shuffling...' : 'shuffle'}
             </span>
             <span className='absolute inset-0 -z-[1] blur-sm bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-80 rounded-md group-hover:opacity-90 group-hover:blur-md transition-all'></span>
             <span className='absolute -inset-1 -z-[2] scale-90 opacity-30 group-hover:opacity-40 group-hover:scale-110 bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-pink-500/30 blur-xl rounded-lg transition-all duration-300'></span>
@@ -531,8 +531,8 @@ export default function HomePage() {
                 </CardTitle>
                 <CardDescription>
                   {isAuthenticated
-                    ? 'Congratulations on earning these for the first time'
-                    : 'Sign in to save these achievements to your profile'}
+                    ? 'congratulations on earning these for the first time'
+                    : 'login to save these achievements to your profile'}
                 </CardDescription>
               </CardHeader>
               <CardContent>

@@ -5,11 +5,11 @@ export const GLOBAL_SHUFFLES_KEY = 'global_shuffles_count'
 
 // Navigation
 export const NAVIGATION_ITEMS = [
-  { name: 'Shuffle', path: '/' },
-  { name: 'Achievements', path: '/achievements' },
-  { name: 'Leaderboard', path: '/leaderboard' },
-  { name: 'Profile', path: '/profile' },
-  { name: 'About', path: '/about' },
+  { name: 'shuffle', path: '/' },
+  { name: 'achievements', path: '/achievements' },
+  { name: 'leaderboard', path: '/leaderboard' },
+  { name: 'profile', path: '/profile' },
+  { name: 'about', path: '/about' },
 ]
 
 // Card layout

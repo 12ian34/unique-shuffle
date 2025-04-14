@@ -100,7 +100,7 @@ export default function AuthPage() {
         // No need to redirect - auth provider will update session and trigger redirect
       }
     } catch (err: any) {
-      console.error(`${isSignUp ? 'Sign up' : 'Login'} error:`, err)
+      console.error(`${isSignUp ? 'sign up' : 'login'} error:`, err)
       setError(err.message || `An error occurred during ${isSignUp ? 'signup' : 'login'}`)
     } finally {
       setIsLoading(false)
@@ -112,12 +112,12 @@ export default function AuthPage() {
       <Card className='border-border/30 shadow-lg transition-all duration-300'>
         <CardHeader>
           <CardTitle className='text-2xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent'>
-            {isSignUp ? 'Create an Account' : 'Welcome Back'}
+            {isSignUp ? 'sign up' : 'welcome back'}
           </CardTitle>
           <CardDescription>
             {isSignUp
-              ? 'Sign up to track your achievements and save your favorite shuffles'
-              : 'Sign in to your account to access your saved shuffles and achievements'}
+              ? 'sign up to track achievements and save fave shuffles'
+              : 'login to access saved shuffles and achievements'}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -127,14 +127,14 @@ export default function AuthPage() {
                 htmlFor='auth-mode'
                 className={`text-sm ${!isSignUp ? 'font-medium' : 'text-muted-foreground'}`}
               >
-                Login
+                login
               </Label>
               <Switch id='auth-mode' checked={isSignUp} onCheckedChange={toggleMode} />
               <Label
                 htmlFor='auth-mode'
                 className={`text-sm ${isSignUp ? 'font-medium' : 'text-muted-foreground'}`}
               >
-                Sign Up
+                sign up
               </Label>
             </div>
 
@@ -167,7 +167,7 @@ export default function AuthPage() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='email-input'>Email</Label>
+                <Label htmlFor='email-input'>email</Label>
                 <Input
                   id='email-input'
                   type='email'
@@ -181,7 +181,7 @@ export default function AuthPage() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='password-input'>Password</Label>
+                <Label htmlFor='password-input'>password</Label>
                 <Input
                   id='password-input'
                   type='password'
@@ -191,7 +191,7 @@ export default function AuthPage() {
                   disabled={isLoading}
                   minLength={isSignUp ? 6 : undefined}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  placeholder={isSignUp ? 'At least 6 characters' : 'Your password'}
+                  placeholder={isSignUp ? 'at least 6 characters' : 'your password'}
                 />
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function AuthPage() {
                 </>
               ) : (
                 <>
-                  {isSignUp ? 'Create Account' : 'Sign In'}
+                  {isSignUp ? 'sign up' : 'login'}
                   <ArrowRightIcon className='ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform' />
                 </>
               )}
@@ -243,7 +243,7 @@ export default function AuthPage() {
               onClick={toggleMode}
               disabled={isLoading}
             >
-              {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Create one'}
+              {isSignUp ? 'already have an account? login' : 'need an account? sign up'}
             </button>
           </CardFooter>
         </form>

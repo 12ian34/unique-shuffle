@@ -551,7 +551,7 @@ export default function ProfilePage() {
     return (
       <div className='text-center py-12'>
         <p className='text-red-500 mb-4'>{error}</p>
-        <Button onClick={() => router.push('/auth')}>Back to Sign In</Button>
+        <Button onClick={() => router.push('/auth')}>back to login</Button>
       </div>
     )
   }
@@ -559,8 +559,8 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className='text-center py-12'>
-        <p className='text-muted-foreground mb-4'>You need to be logged in to view your profile.</p>
-        <Button onClick={() => router.push('/auth')}>Sign In</Button>
+        <p className='text-muted-foreground mb-4'>you need to be logged in to view your profile.</p>
+        <Button onClick={() => router.push('/auth')}>login</Button>
       </div>
     )
   }
@@ -568,11 +568,6 @@ export default function ProfilePage() {
   return (
     <ProtectedRoute>
       <div className='space-y-8'>
-        <div className='text-center max-w-2xl mx-auto'>
-          <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Your Profile</h1>
-          <p className='mt-4 text-muted-foreground'>View your stats and manage your account</p>
-        </div>
-
         <Card>
           <CardHeader>
             {!isEditingUsername ? (
@@ -623,34 +618,32 @@ export default function ProfilePage() {
                 </Button>
               </div>
             )}
-            <CardDescription>Member since {formatDate(user?.created_at || '')}</CardDescription>
+            <CardDescription>shuffler since {formatDate(user?.created_at || '')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
               <div className='bg-muted p-4 rounded-md text-center'>
                 <div className='text-3xl font-bold mb-1'>{user.total_shuffles}</div>
-                <div className='text-sm text-muted-foreground'>Total Shuffles</div>
+                <div className='text-sm text-muted-foreground'>shuffles</div>
               </div>
               <div className='bg-muted p-4 rounded-md text-center'>
                 <div className='text-3xl font-bold mb-1'>{user.achievementCount}</div>
-                <div className='text-sm text-muted-foreground'>Achievements</div>
+                <div className='text-sm text-muted-foreground'>achievements</div>
               </div>
               <div className='bg-muted p-4 rounded-md text-center'>
                 <div className='text-3xl font-bold mb-1'>{user.shuffle_streak}</div>
-                <div className='text-sm text-muted-foreground'>Daily Streak</div>
+                <div className='text-sm text-muted-foreground'>streak</div>
               </div>
             </div>
 
             {/* Theme toggle */}
             <div className='flex items-center justify-between mt-8 p-4 bg-muted rounded-md'>
               <div>
-                <div className='font-medium'>Appearance</div>
-                <div className='text-sm text-muted-foreground'>
-                  Choose between dark and light mode
-                </div>
+                <div className='font-medium'>appearance</div>
+                <div className='text-sm text-muted-foreground'>dark / light mode</div>
               </div>
               <div className='flex items-center space-x-2'>
-                <span className='text-sm'>{theme === 'dark' ? 'Dark' : 'Light'} Mode</span>
+                <span className='text-sm'>{theme === 'dark' ? 'dark' : 'light'} mode</span>
                 <ThemeToggle />
               </div>
             </div>
@@ -666,13 +659,13 @@ export default function ProfilePage() {
         <Tabs defaultValue='saved'>
           <ScrollableTabsList variant='underline' className='mb-8'>
             <TabsTrigger variant='underline' value='saved'>
-              Saved Shuffles
+              saved shuffles
             </TabsTrigger>
             <TabsTrigger variant='underline' value='achievements'>
-              Recent Achievements
+              recent achievements
             </TabsTrigger>
             <TabsTrigger variant='underline' value='friends'>
-              Friends
+              friends
             </TabsTrigger>
           </ScrollableTabsList>
 
@@ -894,8 +887,8 @@ export default function ProfilePage() {
             <div className='space-y-6'>
               <Card>
                 <CardHeader>
-                  <CardTitle>Add Friend</CardTitle>
-                  <CardDescription>Enter a username to send a friend request</CardDescription>
+                  <CardTitle>add friend</CardTitle>
+                  <CardDescription>enter a username to send a friend request</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className='flex gap-2'>
@@ -908,7 +901,7 @@ export default function ProfilePage() {
                       onClick={handleSendFriendRequest}
                       disabled={isSubmitting || !friendUsername.trim()}
                     >
-                      Send Request
+                      send request
                     </Button>
                   </div>
                 </CardContent>
@@ -976,7 +969,7 @@ export default function ProfilePage() {
                             variant='outline'
                             onClick={() => router.push(`/profile/${friend.username}`)}
                           >
-                            View Profile
+                            view profile
                           </Button>
                         </div>
                       ))}

@@ -138,16 +138,9 @@ export default function AchievementsPage() {
 
   return (
     <div className='space-y-8'>
-      <div className='text-center max-w-2xl mx-auto'>
-        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Achievements</h1>
-        <p className='mt-4 text-muted-foreground'>
-          Track your progress and earn special achievements
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Your Progress</CardTitle>
+          <CardTitle>progress</CardTitle>
           <CardDescription>
             {uniqueAchievementsCount} of {achievements.length} achievements earned
           </CardDescription>
@@ -160,18 +153,18 @@ export default function AchievementsPage() {
             />
           </div>
           <p className='text-sm text-muted-foreground text-center'>
-            {completionPercentage}% Complete
+            {completionPercentage}% complete
           </p>
         </CardContent>
       </Card>
 
       <Tabs defaultValue='earned'>
         <ScrollableTabsList variant='underline' className='mb-8'>
-          <TabsTrigger variant='underline' value='earned'>
-            Achievement Timeline
-          </TabsTrigger>
           <TabsTrigger variant='underline' value='available'>
-            All Achievements
+            achievements
+          </TabsTrigger>
+          <TabsTrigger variant='underline' value='earned'>
+            history
           </TabsTrigger>
         </ScrollableTabsList>
 

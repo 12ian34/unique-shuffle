@@ -204,7 +204,7 @@ export default function SavedShufflesPage() {
       {savedShuffles.length === 0 ? (
         <div className='text-center py-12 bg-muted/20 rounded-md'>
           <p className='text-muted-foreground mb-4'>You haven&apos;t saved any shuffles yet.</p>
-          <Button onClick={() => router.push('/')}>Shuffle Cards</Button>
+          <Button onClick={() => router.push('/')}>shuffle!</Button>
         </div>
       ) : (
         <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>

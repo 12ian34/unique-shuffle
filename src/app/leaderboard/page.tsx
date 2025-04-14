@@ -75,29 +75,16 @@ export default function LeaderboardPage() {
 
   return (
     <div className='space-y-8'>
-      <div className='text-center max-w-2xl mx-auto'>
-        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Leaderboard</h1>
-        <p className='mt-4 text-muted-foreground'>
-          See who&apos;s shuffling the most and earning achievements
-        </p>
-      </div>
-
       <ErrorBoundary>
         <Card>
           <CardHeader>
             <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4'>
-              <div>
-                <CardTitle>Top Shufflers</CardTitle>
-                <CardDescription>
-                  Rankings based on shuffles, achievements, and streaks
-                </CardDescription>
-              </div>
               <Button
                 variant={showFriendsOnly ? 'default' : 'outline'}
                 onClick={toggleFriendsOnly}
                 className='whitespace-nowrap'
               >
-                {showFriendsOnly ? 'Showing Friends' : 'Show All Users'}
+                {showFriendsOnly ? 'friends' : 'all users'}
               </Button>
             </div>
           </CardHeader>
@@ -105,13 +92,13 @@ export default function LeaderboardPage() {
             <Tabs value={currentTab} onValueChange={handleTabChange}>
               <ScrollableTabsList variant='underline' className='mb-8'>
                 <TabsTrigger variant='underline' value='total'>
-                  Shuffles
+                  shuffles
                 </TabsTrigger>
                 <TabsTrigger variant='underline' value='achievements'>
-                  Achievements
+                  achievements
                 </TabsTrigger>
                 <TabsTrigger variant='underline' value='streak'>
-                  Streak
+                  streak
                 </TabsTrigger>
               </ScrollableTabsList>
 
@@ -193,14 +180,14 @@ function renderLeaderboard(
       <table className='w-full'>
         <thead>
           <tr className='border-b'>
-            <th className='text-left py-3 px-2'>Rank</th>
-            <th className='text-left py-3 px-2'>Username</th>
+            <th className='text-left py-3 px-2'>rank</th>
+            <th className='text-left py-3 px-2'>username</th>
             <th className='text-right py-3 px-2'>
               {sortField === 'totalShuffles'
-                ? 'Shuffles'
+                ? 'shuffles'
                 : sortField === 'achievementCount'
-                ? 'Achievements'
-                : 'Streak'}
+                ? 'achievements'
+                : 'streak'}
             </th>
           </tr>
         </thead>

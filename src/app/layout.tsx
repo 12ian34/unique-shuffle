@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
             <footer className='border-t py-6 bg-muted/20 w-full'>
               <div className='container max-w-5xl px-4 mx-auto text-center text-sm text-muted-foreground'>
-                <p>&copy; {new Date().getFullYear()} Unique Shuffle. All rights reserved.</p>
+                <p>&copy; {new Date().getFullYear()} Ian Ahuja. all rights reserved.</p>
                 <p className='mt-2'>
                   <a
                     href='https://github.com/12ian34/unique-shuffle'
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     rel='noopener noreferrer'
                     className='hover:underline text-primary/80 hover:text-primary transition-colors'
                   >
-                    View on GitHub
+                    source code
                   </a>
                 </p>
               </div>
