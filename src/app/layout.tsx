@@ -56,8 +56,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
             <footer className='border-t py-6 bg-muted/20 w-full'>
               <div className='container max-w-5xl px-4 mx-auto text-center text-sm text-muted-foreground'>
-                <p>&copy; {new Date().getFullYear()} ian ahuja. all rights reserved.</p>
+                <p>
+                  &copy; {new Date().getFullYear()}{' '}
+                  <a
+                    href='https://ianahuja.com'
+                    className='hover:underline text-primary/80 hover:text-primary transition-colors'
+                  >
+                    ian ahuja
+                  </a>{' '}
+                  all rights reserved.
+                </p>
                 <p className='mt-2'>
+                  💻{' '}
                   <a
                     href='https://github.com/12ian34/unique-shuffle'
                     target='_blank'
@@ -65,6 +75,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     className='hover:underline text-primary/80 hover:text-primary transition-colors'
                   >
                     source code
+                  </a>
+                  {' • '}
+                  🍕{' '}
+                  <a
+                    href='https://www.buymeacoffee.com/12ian34'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='relative inline-flex items-center py-1 rounded hover:bg-orange-100/20 text-orange-500 hover:text-orange-600 font-medium transition-all hover:scale-105 animate-pulse hover:animate-none'
+                  >
+                    buy me pizza
                   </a>
                 </p>
               </div>
