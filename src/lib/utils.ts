@@ -1,78 +1,99 @@
-import { type ClassValue, clsx } from 'clsx'
+import { ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Card } from '../types'
-import { GAME_SETTINGS } from './constants'
+import { formatDistance } from 'date-fns'
 
+// Utility for combining Tailwind CSS classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatNumber(num: number): string {
-  return new Intl.NumberFormat('en-US').format(num)
-}
+// Format a date to a human-readable string
+export function formatDate(date: string | Date): string {
+  if (!date) return ''
 
-export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  }).format(date)
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-export function getRandomInt(min: number, max: number): number {
-  min = Math.ceil(min)
-  max = Math.floor(max)
-  return Math.floor(Math.random() * (max - min + 1)) + min
+// Format a date relative to now (e.g., "2 days ago")
+export function formatRelativeDate(date: string | Date): string {
+  if (!date) return ''
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return formatDistance(dateObj, new Date(), { addSuffix: true })
 }
 
-export function isValidCardCount(count: number): boolean {
-  return count > 0 && count <= GAME_SETTINGS.MAX_CARDS_PER_SHUFFLE
-}
+// Generate a random string of specified length
+export function generateRandomString(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
 
-export function getRandomCards(deck: Card[], count: number): Card[] {
-  if (!isValidCardCount(count)) {
-    throw new Error('Invalid card count')
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
 
-  const shuffled = [...deck].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count)
+  return result
 }
 
-export function formatTime(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+// Convert a large number to a human-readable string with abbreviations
+export function formatLargeNumber(num: number): string {
+  if (num < 1000) return num.toString()
+
+  if (num < 1000000) {
+    return `${(num / 1000).toFixed(1)}K`.replace('.0K', 'K')
+  }
+
+  if (num < 1000000000) {
+    return `${(num / 1000000).toFixed(1)}M`.replace('.0M', 'M')
+  }
+
+  return `${(num / 1000000000).toFixed(1)}B`.replace('.0B', 'B')
 }
 
+// Convert a number to an ordinal string (1st, 2nd, 3rd, etc.)
+export function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
+// Create a "debounced" version of a function
 export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
+  fn: T,
+  ms = 300
 ): (...args: Parameters<T>) => void {
-  let timeout: number
+  let timeoutId: ReturnType<typeof setTimeout>
 
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      clearTimeout(timeout)
-      func(...args)
-    }
-
-    clearTimeout(timeout)
-    timeout = setTimeout(later, wait) as unknown as number
+  return function (...args: Parameters<T>) {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), ms)
   }
 }
 
-export function getCardValue(card: Card): number {
-  switch (card.value) {
-    case 'A':
-      return 1
-    case 'J':
-      return 11
-    case 'Q':
-      return 12
-    case 'K':
-      return 13
-    default:
-      return parseInt(card.value)
-  }
-} 
+// Create a unique ID
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 15)
+}
+
+// Group an array by a key
+export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
+  return array.reduce((result, currentValue) => {
+    const groupKey = String(currentValue[key])
+    if (!result[groupKey]) {
+      result[groupKey] = []
+    }
+    result[groupKey].push(currentValue)
+    return result
+  }, {} as Record<string, T[]>)
+}
+
+// Sleep for a specified time
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}

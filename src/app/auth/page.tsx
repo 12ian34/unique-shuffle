@@ -1,49 +1,79 @@
 'use client'
 
-import { useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect } from 'react'
 import {
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
 } from '@/components/ui/card'
-import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { generateUsername } from '@/utils/username-generator'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function AuthPage() {
+  const router = useRouter()
+  const { signIn, signUp, session } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(generateUsername())
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isSignUp, setIsSignUp] = useState(false)
-  const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const [success, setSuccess] = useState<string | null>(null)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (session) {
+      router.push('/')
+    }
+  }, [session, router])
+
+  // Check for error parameter or auth tokens in URL on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Check for error in query params
+      const params = new URLSearchParams(window.location.search)
+      const errorParam = params.get('error')
+
+      if (errorParam) {
+        setError(decodeURIComponent(errorParam))
+        // Clean up the URL
+        const cleanUrl = new URL(window.location.href)
+        cleanUrl.searchParams.delete('error')
+        router.replace(cleanUrl.pathname + cleanUrl.search)
+      }
+    }
+  }, [router])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${location.origin}/auth/callback`,
-        },
-      })
+      const { error, data } = await signUp(email, password, username)
 
       if (error) throw error
-      router.push('/')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+
+      if (!data?.session) {
+        // User needs to verify email
+        setSuccess('Account created successfully! Please check your email for a confirmation link.')
+        setEmail('')
+        setPassword('')
+        setUsername(generateUsername())
+      } else {
+        // Auto-login case (shouldn't happen with email verification)
+        setSuccess('Account created successfully!')
+        // Router will auto-redirect due to session change
+      }
+    } catch (err: any) {
+      console.error('Sign up error:', err)
+      setError(err.message || 'An error occurred during signup')
     } finally {
       setIsLoading(false)
     }
@@ -55,110 +85,155 @@ export default function AuthPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { error } = await signIn(email, password)
 
       if (error) throw error
-      router.push('/')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+
+      // No need to redirect - auth provider will update session and trigger redirect
+    } catch (err: any) {
+      console.error('Login error:', err)
+      setError(err.message || 'An error occurred during login')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className='min-h-screen flex flex-col items-center  bg-[rgb(10,15,30)] p-4'>
-      <div className='w-full max-w-md'>
-        <div className='mt-8 text-center text-sm text-slate-500'>
-          <p>
-            each unique shuffle of a deck of 52 cards is 1 in{' '}
-            <span className='font-mono text-indigo-400 break-all inline-block max-w-full'>
-              80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
-            </span>{' '}
-          </p>
-        </div>
-        <br></br>
-        <Card className='border-slate-800 bg-[rgb(8,12,25)] shadow-xl'>
-          <CardHeader className='pb-2'>
-            <CardTitle className='text-center text-3xl font-bold text-indigo-400'>
-              get shuffling
-            </CardTitle>
-            <CardDescription className='text-center text-sm text-slate-400'>
-              {isSignUp ? 'sign up' : 'sign in'}
-            </CardDescription>
-          </CardHeader>
+    <div className='max-w-md mx-auto pt-8'>
+      <Tabs defaultValue='login'>
+        <TabsList className='grid w-full grid-cols-2'>
+          <TabsTrigger value='login'>Login</TabsTrigger>
+          <TabsTrigger value='signup'>Sign Up</TabsTrigger>
+        </TabsList>
 
-          <CardContent className='pt-6'>
-            {error && (
-              <div className='mb-4 rounded border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400'>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={isSignUp ? handleSignUp : handleSignIn}>
-              <div className='space-y-4'>
+        <TabsContent value='login'>
+          <Card>
+            <CardHeader>
+              <CardTitle>Login</CardTitle>
+              <CardDescription>
+                Sign in to your account to save shuffles and track achievements
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSignIn}>
+              <CardContent className='space-y-4'>
                 <div className='space-y-2'>
-                  <label htmlFor='email' className='text-sm font-medium text-slate-300'>
-                    email
+                  <label className='text-sm font-medium' htmlFor='email-login'>
+                    Email
                   </label>
                   <input
-                    id='email'
-                    name='email'
+                    id='email-login'
                     type='email'
-                    required
-                    className='w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                    placeholder='you@example.com'
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className='w-full p-2 border rounded-md'
+                    required
                   />
                 </div>
-
                 <div className='space-y-2'>
-                  <label htmlFor='password' className='text-sm font-medium text-slate-300'>
-                    password
+                  <label className='text-sm font-medium' htmlFor='password-login'>
+                    Password
                   </label>
                   <input
-                    id='password'
-                    name='password'
+                    id='password-login'
                     type='password'
-                    required
-                    className='w-full rounded border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                    placeholder='••••••••'
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className='w-full p-2 border rounded-md'
+                    required
                   />
                 </div>
 
+                {error && (
+                  <div className='text-sm text-red-500 p-2 bg-red-50 rounded-md'>{error}</div>
+                )}
+              </CardContent>
+              <CardFooter>
                 <Button type='submit' className='w-full' disabled={isLoading}>
-                  {isLoading
-                    ? isSignUp
-                      ? 'signing up...'
-                      : 'signing in...'
-                    : isSignUp
-                    ? 'sign up'
-                    : 'sign in'}
+                  {isLoading ? 'Signing In...' : 'Sign In'}
                 </Button>
-              </div>
+              </CardFooter>
             </form>
-          </CardContent>
+          </Card>
+        </TabsContent>
 
-          <CardFooter className='flex flex-col items-center justify-center border-t border-slate-800 pt-6'>
-            <div className='text-sm text-slate-400'>
-              {isSignUp ? 'already have an account?' : 'need an account?'}
-              <Button
-                variant='link'
-                className='ml-1 pl-1 font-medium text-indigo-400'
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp ? 'sign in' : 'sign up'}
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
+        <TabsContent value='signup'>
+          <Card>
+            <CardHeader>
+              <CardTitle>Create an Account</CardTitle>
+              <CardDescription>
+                Sign up to track your achievements and save your favorite shuffles
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSignUp}>
+              <CardContent className='space-y-4'>
+                <div className='space-y-2'>
+                  <label className='text-sm font-medium' htmlFor='username-signup'>
+                    Username
+                  </label>
+                  <div className='flex'>
+                    <input
+                      id='username-signup'
+                      type='text'
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className='w-full p-2 border rounded-l-md'
+                      required
+                    />
+                    <Button
+                      type='button'
+                      variant='secondary'
+                      className='rounded-l-none'
+                      onClick={() => setUsername(generateUsername())}
+                    >
+                      Random
+                    </Button>
+                  </div>
+                </div>
+                <div className='space-y-2'>
+                  <label className='text-sm font-medium' htmlFor='email-signup'>
+                    Email
+                  </label>
+                  <input
+                    id='email-signup'
+                    type='email'
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className='w-full p-2 border rounded-md'
+                    required
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <label className='text-sm font-medium' htmlFor='password-signup'>
+                    Password
+                  </label>
+                  <input
+                    id='password-signup'
+                    type='password'
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className='w-full p-2 border rounded-md'
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                {error && (
+                  <div className='text-sm text-red-500 p-2 bg-red-50 rounded-md'>{error}</div>
+                )}
+
+                {success && (
+                  <div className='text-sm text-green-500 p-2 bg-green-50 rounded-md'>{success}</div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button type='submit' className='w-full' disabled={isLoading}>
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

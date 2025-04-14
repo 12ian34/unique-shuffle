@@ -1,133 +1,492 @@
 'use client'
 
-import { useState, useEffect, Suspense, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { createDeck, shuffleDeck } from '@/lib/cards'
+import { findPatterns } from '@/lib/achievements'
+import { Deck, Pattern, Achievement } from '@/types'
 import { ShuffleDisplay } from '@/components/shuffle-display'
-import { Card as CardType, UserStats } from '@/types'
-import { Database } from '@/types/supabase'
-import dynamic from 'next/dynamic'
-import { createDisabledRealtimeClient } from '@/lib/supabase-browser'
-import { getUserStats, subscribeToStats, fetchStats, initializeStats } from '@/lib/stats-store'
+import { ShuffleAnimation } from '@/components/shuffle-animation'
+import supabase from '@/lib/supabase'
+import { useToast } from '@/components/ui/use-toast'
+import { useRouter } from 'next/navigation'
+import { refreshShuffleStats } from '@/components/global-shuffle-counter'
+import { refreshUserStats } from '@/components/user-stats-provider'
+import { BookmarkIcon, BookmarkFilledIcon } from '@radix-ui/react-icons'
+import { generateRandomString } from '@/lib/utils'
 
-// Lazily load non-critical components
-const AchievementsLoader = dynamic(
-  () =>
-    import('@/lib/achievements').then((mod) => ({
-      default: (props: { stats: UserStats }) => {
-        const achievements = mod.getUnlockedAchievements(props.stats)
-        return null // We're just using this for calculation, not rendering
-      },
-    })),
-  { ssr: false, loading: () => null }
-)
+export default function HomePage() {
+  const router = useRouter()
+  const [shuffledDeck, setShuffledDeck] = useState<Deck | null>(null)
+  const [patterns, setPatterns] = useState<Pattern[]>([])
+  const [isShuffling, setIsShuffling] = useState(false)
+  const [earnedAchievements, setEarnedAchievements] = useState<Achievement[]>([])
+  const [showAnimation, setShowAnimation] = useState(false)
+  const [animatedDeck, setAnimatedDeck] = useState<Deck | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const { toast } = useToast()
+  // Add a ref to track if a save operation is in progress
+  const isSaveInProgressRef = useRef(false)
+  // Add a ref to track if this shuffle has been processed
+  const hasProcessedCurrentShuffleRef = useRef(false)
+  // Add state for current shuffle ID and saved status
+  const [currentShuffleId, setCurrentShuffleId] = useState<string | null>(null)
+  const [isShuffleSaved, setIsShuffleSaved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  // Add new state for previously unlocked achievements
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([])
+  const [previouslyUnlockedAchievements, setPreviouslyUnlockedAchievements] = useState<
+    Achievement[]
+  >([])
 
-export default function Home() {
-  // Start with empty stats until client-side initialization
-  const [stats, setStats] = useState<UserStats>({
-    total_shuffles: 0,
-    shuffle_streak: 0,
-    achievements_count: 0,
-    most_common_cards: [],
-  })
-  const [isLoading, setIsLoading] = useState(false)
-  const [isInitialized, setIsInitialized] = useState(false)
-  const hasInitializedRef = useRef(false)
-
-  // Initialize store on mount (client-side only)
   useEffect(() => {
-    const initialize = async () => {
-      if (hasInitializedRef.current) return
-      hasInitializedRef.current = true
+    // Check auth status when component mounts
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession()
+      setIsAuthenticated(!!data.session)
 
-      setIsLoading(true)
-      try {
-        // Initialize the store (client-side only)
-        await initializeStats()
+      // If authenticated, refresh the stats immediately
+      if (data.session) {
+        console.log('User authenticated on page load, refreshing stats')
+        refreshShuffleStats() // Refresh global stats
+        refreshUserStats() // Refresh user stats
 
-        // Get initial stats
-        const initialStats = getUserStats()
-        if (initialStats) {
-          setStats(initialStats)
-        }
+        // Fetch previously earned achievements
+        const { data: userAchievements } = await supabase
+          .from('achievements')
+          .select('achievement_id')
+          .eq('user_id', data.session.user.id)
 
-        setIsInitialized(true)
-      } catch (error) {
-        console.error('Failed to initialize stats:', error)
-      } finally {
-        setIsLoading(false)
+        // Create a set of previously earned achievement IDs
+        const previouslyEarnedAchievementIds = new Set(
+          userAchievements?.map((a) => a.achievement_id) || []
+        )
+
+        // Store this set for later use
+        setUserPreviousAchievements(previouslyEarnedAchievementIds)
       }
     }
 
-    initialize()
+    checkAuth()
   }, [])
 
-  // Subscribe to store updates
-  useEffect(() => {
-    if (!isInitialized) return
+  // Create ref to store previously earned achievements
+  const userPreviousAchievementsRef = useRef(new Set<string>())
 
-    // Update stats from the store when it changes
-    const handleStatsUpdate = () => {
-      const newStats = getUserStats()
-      if (newStats) {
-        setStats(newStats)
-      }
+  // Function to set user's previously earned achievements
+  const setUserPreviousAchievements = (achievementIds: Set<string>) => {
+    userPreviousAchievementsRef.current = achievementIds
+  }
+
+  const handleShuffle = async () => {
+    setIsShuffling(true)
+    setEarnedAchievements([])
+    setShowAnimation(false)
+    setShuffledDeck(null)
+    setPatterns([])
+    // Reset shuffle save states
+    setCurrentShuffleId(null)
+    setIsShuffleSaved(false)
+
+    // Reset the shuffle processing state for the new shuffle
+    hasProcessedCurrentShuffleRef.current = false
+    isSaveInProgressRef.current = false
+
+    try {
+      // Create and shuffle a new deck
+      const deck = createDeck()
+      const shuffled = shuffleDeck(deck)
+
+      // Show the animation
+      setAnimatedDeck(shuffled)
+      setShowAnimation(true)
+
+      // When animation is complete, the onCompleteAction callback will
+      // set the shuffled deck and find patterns
+    } catch (error) {
+      console.error('Error shuffling deck:', error)
+      setIsShuffling(false)
+    }
+  }
+
+  const handleAnimationComplete = async () => {
+    if (!animatedDeck) return
+
+    // Prevent multiple executions for the same shuffle
+    if (hasProcessedCurrentShuffleRef.current) {
+      console.log('This shuffle has already been processed, skipping')
+      return
     }
 
-    // Subscribe to stats updates
-    const unsubscribe = subscribeToStats(handleStatsUpdate)
+    // Mark as being processed
+    hasProcessedCurrentShuffleRef.current = true
 
-    // Unsubscribe on unmount
-    return unsubscribe
-  }, [isInitialized])
+    // Prevent concurrent save operations
+    if (isSaveInProgressRef.current) {
+      console.log('Save operation already in progress, skipping')
+      return
+    }
 
-  const handleSaveShuffle = async (cards: CardType[]) => {
+    // Set flag to indicate a save is in progress
+    isSaveInProgressRef.current = true
+
     try {
-      // Call API endpoint instead of directly inserting
-      const response = await fetch('/api/shuffle/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-        body: JSON.stringify({ cards }),
-        cache: 'no-store',
-      })
+      // Set the deck after animation
+      setShuffledDeck(animatedDeck)
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save shuffle')
+      // Find patterns in the shuffled deck
+      const foundPatterns = findPatterns(animatedDeck)
+      setPatterns(foundPatterns)
+
+      // Get the current user and auth session
+      const { data: authData } = await supabase.auth.getSession()
+      const accessToken = authData.session?.access_token
+      console.log('Auth Session Check:', authData.session ? 'Active session' : 'No session')
+
+      // If not authenticated, show a toast with info about signing in
+      if (!authData.session) {
+        toast({
+          title: 'Shuffle not saved',
+          description: 'Sign in to save your shuffles and track achievements!',
+          duration: 5000,
+        })
+        return
       }
 
-      // Parse the response data
-      const data = await response.json()
-      console.log('Shuffle saved successfully:', data)
+      let saveSuccessful = false
 
-      return data
+      if (accessToken) {
+        // Track the shuffle via API with auth token included in headers
+        try {
+          const response = await fetch('/api/shuffle/track', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ cards: animatedDeck }),
+          })
+
+          console.log('API Response Status:', response.status)
+
+          if (response.ok) {
+            const data = await response.json()
+            console.log('Shuffle tracked successfully:', data.saved ? 'Saved to DB' : 'Not saved')
+            saveSuccessful = true
+
+            // Store the shuffle ID for save functionality
+            if (data.shuffle && data.shuffle.id) {
+              setCurrentShuffleId(data.shuffle.id)
+              setIsShuffleSaved(data.shuffle.is_saved || false)
+            }
+
+            // Update any earned achievements
+            if (data.achievements && data.achievements.length > 0) {
+              // Store all earned achievements
+              setEarnedAchievements(data.achievements)
+
+              // Separate new achievements from previously unlocked ones
+              const newlyEarned: Achievement[] = []
+              const previouslyUnlocked: Achievement[] = []
+
+              data.achievements.forEach((achievement: Achievement) => {
+                if (userPreviousAchievementsRef.current.has(achievement.id)) {
+                  previouslyUnlocked.push(achievement)
+                } else {
+                  newlyEarned.push(achievement)
+                  // Add to our set of previously earned achievements for future shuffles
+                  userPreviousAchievementsRef.current.add(achievement.id)
+                }
+              })
+
+              setNewAchievements(newlyEarned)
+              setPreviouslyUnlockedAchievements(previouslyUnlocked)
+            }
+
+            // If we received userStats in the response, update the UI immediately
+            if (data.userStats) {
+              console.log('Updating UI with received user stats:', data.userStats)
+              // Dispatch an event to update the stats immediately
+              const statsUpdateEvent = new CustomEvent('statsUpdate', {
+                detail: {
+                  userStats: data.userStats,
+                },
+              })
+              window.dispatchEvent(statsUpdateEvent)
+            } else {
+              // Fallback to refresh from API
+              refreshShuffleStats()
+              refreshUserStats()
+            }
+          } else {
+            console.error('API failed with status:', response.status)
+            const errorData = await response.json().catch(() => ({}))
+            console.error('Error details:', errorData)
+            // API failed, we'll try direct DB access below
+          }
+        } catch (fetchError) {
+          console.error('Error in fetch call:', fetchError)
+          // Fetch call failed, we'll try direct DB access below
+        }
+      }
+
+      // Only if the API method failed, try the direct method
+      if (!saveSuccessful && authData.session) {
+        console.log('API save failed or unavailable, using direct DB access')
+        await saveShuffleDirect(authData.session, animatedDeck)
+      }
     } catch (error) {
-      console.error('Failed to save shuffle:', error)
-      throw error
+      console.error('Error processing shuffle:', error)
+    } finally {
+      // Reset the save in progress flag
+      isSaveInProgressRef.current = false
+      setIsShuffling(false)
+      setShowAnimation(false)
+    }
+  }
+
+  // Helper function to save shuffle directly to DB
+  const saveShuffleDirect = async (session: any, deck: Deck) => {
+    if (!session?.user) {
+      console.log('No active session for direct DB access')
+      return
+    }
+
+    try {
+      console.log('Trying direct DB access')
+      // Get user stats first
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      if (userData) {
+        // Save shuffle directly
+        const { data: shuffle, error: shuffleError } = await supabase
+          .from('shuffles')
+          .insert({
+            user_id: session.user.id,
+            cards: deck,
+          })
+          .select()
+          .single()
+
+        if (shuffleError) {
+          console.error('Error saving shuffle directly:', shuffleError)
+          return
+        }
+
+        if (shuffle) {
+          // Store the shuffle ID for save functionality
+          setCurrentShuffleId(shuffle.id)
+          setIsShuffleSaved(shuffle.is_saved || false)
+
+          // Update user stats
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
+              total_shuffles: (userData.total_shuffles || 0) + 1,
+              last_shuffle_date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+              updated_at: new Date().toISOString(),
+              // Note: shuffle_streak is managed by the database trigger
+            })
+            .eq('id', session.user.id)
+
+          if (updateError) {
+            console.error('Error updating user stats:', updateError)
+            return
+          }
+
+          console.log('Shuffle saved directly to database')
+
+          // Get updated user stats after the update
+          const { data: updatedUser, error: fetchUpdatedUserError } = await supabase
+            .from('users')
+            .select('total_shuffles, shuffle_streak, last_shuffle_date')
+            .eq('id', session.user.id)
+            .single()
+
+          if (fetchUpdatedUserError) {
+            console.error('Error fetching updated user stats:', fetchUpdatedUserError)
+            // Fallback to refresh API if we couldn't get updated stats
+            refreshShuffleStats()
+            refreshUserStats()
+          } else {
+            console.log('Updated user stats:', updatedUser)
+            // Dispatch event with updated stats
+            const statsUpdateEvent = new CustomEvent('statsUpdate', {
+              detail: {
+                userStats: updatedUser,
+              },
+            })
+            window.dispatchEvent(statsUpdateEvent)
+          }
+        }
+      } else {
+        console.log('User data not found for direct DB access')
+      }
+    } catch (error) {
+      console.error('Error in direct DB access:', error)
+    }
+  }
+
+  // Add a new function to handle saving a shuffle
+  const handleSaveShuffle = async () => {
+    if (!currentShuffleId || !isAuthenticated) {
+      toast({
+        title: 'Cannot save shuffle',
+        description: 'Please sign in to save shuffles.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      // Use direct Supabase client to update the shuffle
+      const { data: updatedShuffle, error } = await supabase
+        .from('shuffles')
+        .update({
+          is_saved: true,
+          // We should not generate a share_code here - it should only be generated when sharing
+        })
+        .eq('id', currentShuffleId)
+        .select()
+        .single()
+
+      console.log('Save shuffle result:', {
+        success: !error,
+        shuffleId: updatedShuffle?.id,
+        isSaved: updatedShuffle?.is_saved,
+        error,
+      })
+
+      if (error) {
+        console.error('Error saving shuffle:', error)
+        toast({
+          title: 'Error saving shuffle',
+          description: 'There was a problem saving your shuffle.',
+          variant: 'destructive',
+        })
+      } else {
+        setIsShuffleSaved(true)
+        toast({
+          title: 'Shuffle saved',
+          description: 'Your shuffle has been saved to your profile.',
+        })
+
+        // Refresh user stats to update saved shuffle count
+        refreshUserStats()
+      }
+    } catch (error) {
+      console.error('Error saving shuffle:', error)
+      toast({
+        title: 'Error saving shuffle',
+        description: 'There was a problem saving your shuffle.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSaving(false)
     }
   }
 
   return (
-    <main className='min-h-screen p-4 md:p-8'>
-      <div className='max-w-[1400px] mx-auto'>
-        <p className='text-lg mb-6 text-slate-300'>
-          there is a 1 in{' '}
-          <span className='inline-block break-all md:break-all text-pretty'>
-            80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
-          </span>{' '}
-          chance that anyone has shuffled this before. it&apos;s probably unique:
+    <div className='space-y-8'>
+      <div className='text-center max-w-2xl mx-auto'>
+        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Unique Shuffle</h1>
+        <p className='mt-4 text-muted-foreground leading-relaxed'>
+          There is a 1 in
+          80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
+          chance that anyone has shuffled this before. It&apos;s probably unique:
         </p>
+        <div className='mt-6 flex flex-col sm:flex-row gap-3 justify-center'>
+          <Button size='lg' onClick={handleShuffle} disabled={isShuffling}>
+            {isShuffling ? 'Shuffling...' : 'Shuffle Cards'}
+          </Button>
 
-        <div className='space-y-8'>
-          <div className='grid grid-cols-1 gap-6'>
-            <ShuffleDisplay onSaveShuffleAction={handleSaveShuffle} />
-          </div>
+          {isAuthenticated === false && (
+            <Button size='lg' variant='outline' onClick={() => router.push('/auth')}>
+              Sign In to Save Shuffles
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Load achievements calculation in the background */}
-      <Suspense fallback={null}>{stats && <AchievementsLoader stats={stats} />}</Suspense>
-    </main>
+      {showAnimation && animatedDeck && (
+        <ShuffleAnimation cards={animatedDeck} onCompleteAction={handleAnimationComplete} />
+      )}
+
+      {newAchievements.length > 0 && (
+        <Card className='bg-primary/10 border-primary/20'>
+          <CardHeader>
+            <CardTitle>New Achievements Unlocked!</CardTitle>
+            <CardDescription>Congratulations on earning these for the first time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className='space-y-2'>
+              {newAchievements.map((achievement, index) => (
+                <li key={index} className='flex items-start gap-2'>
+                  <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm'>
+                    NEW
+                  </span>
+                  <div>
+                    <p className='font-medium'>{achievement.name}</p>
+                    <p className='text-sm text-muted-foreground'>{achievement.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {previouslyUnlockedAchievements.length > 0 && (
+        <Card className='bg-muted/30 border-muted'>
+          <CardHeader>
+            <CardTitle>Achievements Found Again</CardTitle>
+            <CardDescription>You&apos;ve previously unlocked these achievements</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className='space-y-2'>
+              {previouslyUnlockedAchievements.map((achievement, index) => (
+                <li key={index} className='flex items-start gap-2 opacity-75'>
+                  <div>
+                    <p className='font-medium'>{achievement.name}</p>
+                    <p className='text-sm text-muted-foreground'>{achievement.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {shuffledDeck && (
+        <>
+          {isAuthenticated && currentShuffleId && (
+            <div className='flex justify-end'>
+              <Button
+                variant={isShuffleSaved ? 'default' : 'outline'}
+                onClick={handleSaveShuffle}
+                disabled={isSaving || isShuffleSaved}
+                className='gap-2'
+              >
+                {isShuffleSaved ? (
+                  <BookmarkFilledIcon className='h-4 w-4' />
+                ) : (
+                  <BookmarkIcon className='h-4 w-4' />
+                )}
+                {isSaving ? 'Saving...' : isShuffleSaved ? 'Saved' : 'Save Shuffle'}
+              </Button>
+            </div>
+          )}
+          <ShuffleDisplay deck={shuffledDeck} patterns={patterns} />
+        </>
+      )}
+    </div>
   )
 }

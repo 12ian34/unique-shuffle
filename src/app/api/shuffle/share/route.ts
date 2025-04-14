@@ -1,132 +1,157 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServer } from '@/lib/supabase-server'
-import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { nanoid } from 'nanoid'
+import { createClient } from '@/lib/supabase-server'
+import { generateRandomString } from '@/lib/utils'
+import {
+  ErrorType,
+  ErrorSeverity,
+  createError,
+  createAuthError,
+  createValidationError,
+} from '@/lib/errors'
 
+// Share a shuffle
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServer()
-  const supabaseAdmin = createSupabaseAdmin()
+  const supabase = await createClient()
 
   try {
-    // Parse request data
-    const requestData = await request.json()
-    const { shuffleId } = requestData
+    const { shuffleId } = await request.json()
 
-    if (!shuffleId) {
-      return NextResponse.json({ error: 'shuffleId is required' }, { status: 400 })
-    }
-
-    // Authenticate the user
+    // Get the current user
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json(
-        {
-          error: 'Authentication required',
-          details: userError?.message,
-        },
+        { error: createAuthError('Authentication required') },
         { status: 401 }
       )
     }
 
-    // Verify shuffle belongs to user
-    const { data: shuffleData, error: fetchError } = await supabaseAdmin
-      .from('global_shuffles')
+    if (!shuffleId) {
+      return NextResponse.json(
+        {
+          error: createValidationError('Missing shuffleId parameter', { param: 'shuffleId' }),
+        },
+        { status: 400 }
+      )
+    }
+
+    // Get the shuffle to check if it belongs to the user
+    const { data: shuffle } = await supabase
+      .from('shuffles')
       .select('*')
       .eq('id', shuffleId)
-      .eq('user_id', user.id)
-      .eq('is_saved', true)
       .single()
 
-    if (fetchError || !shuffleData) {
+    if (!shuffle) {
       return NextResponse.json(
-        { error: 'Shuffle not found or does not belong to user' },
+        {
+          error: createError(
+            'Shuffle not found',
+            ErrorType.DATABASE,
+            ErrorSeverity.ERROR,
+            { shuffleId },
+            'RESOURCE_NOT_FOUND'
+          ),
+        },
         { status: 404 }
       )
     }
 
-    // Generate a share code if one doesn't exist
-    if (!shuffleData.share_code) {
-      const shareCode = nanoid(10) // Generate a short unique ID
+    if (shuffle.user_id !== user.id) {
+      return NextResponse.json(
+        {
+          error: createAuthError('Not authorized to share this shuffle', {
+            shuffleId,
+            userId: user.id,
+          }),
+        },
+        { status: 403 }
+      )
+    }
 
-      console.log('Generating share code and setting is_shared=true for shuffle ID:', shuffleId)
-
-      const { data: updatedShuffle, error: updateError } = await supabaseAdmin
-        .from('global_shuffles')
-        .update({ share_code: shareCode, is_shared: true })
-        .eq('id', shuffleId)
-        .select()
-        .single()
-
-      if (updateError) {
-        console.error('Failed to update shuffle with share code:', updateError)
-        return NextResponse.json(
-          { error: 'Failed to generate share code', details: updateError.message },
-          { status: 500 }
-        )
-      }
-
-      console.log('Successfully updated shuffle with share code and set is_shared=true')
-
-      // Get the base URL from the request
-      const protocol = request.headers.get('x-forwarded-proto') || 'http'
-      const host =
-        request.headers.get('host') ||
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '') ||
-        'localhost:3000'
-      const baseUrl = `${protocol}://${host}`
-
+    // If the shuffle is already shared, just return it
+    if (shuffle.is_shared && shuffle.share_code) {
       return NextResponse.json({
         success: true,
-        shareCode,
-        shareUrl: `${baseUrl}/shared/${encodeURIComponent(shareCode)}`,
+        shareCode: shuffle.share_code,
+        shuffle,
       })
     }
 
-    // Return existing share code
-    // Make sure is_shared is set to true even if share_code already exists
-    if (!shuffleData.is_shared) {
-      console.log(
-        'Share code exists but is_shared=false, updating is_shared to true for shuffle ID:',
-        shuffleId
+    // Generate a share code if none exists
+    const shareCode = shuffle.share_code || generateRandomString(10)
+
+    // Update the shuffle to mark it as shared
+    const { data: updatedShuffle, error } = await supabase
+      .from('shuffles')
+      .update({
+        is_shared: true,
+        share_code: shareCode,
+      })
+      .eq('id', shuffleId)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json(
+        {
+          error: createError(
+            'Failed to update shuffle sharing status',
+            ErrorType.DATABASE,
+            ErrorSeverity.ERROR,
+            { supabaseError: error },
+            'DATABASE_ERROR'
+          ),
+        },
+        { status: 500 }
       )
-
-      const { error: updateError } = await supabaseAdmin
-        .from('global_shuffles')
-        .update({ is_shared: true })
-        .eq('id', shuffleId)
-
-      if (updateError) {
-        console.error('Failed to update is_shared flag:', updateError)
-      } else {
-        console.log('Successfully updated is_shared to true')
-      }
     }
 
-    // Get the base URL from the request
-    const protocol = request.headers.get('x-forwarded-proto') || 'http'
-    const host =
-      request.headers.get('host') ||
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '') ||
-      'localhost:3000'
-    const baseUrl = `${protocol}://${host}`
+    // Create a shared_shuffles record if it doesn't exist
+    const { error: sharedError } = await supabase.from('shared_shuffles').upsert(
+      {
+        shuffle_id: shuffleId,
+        views: 0,
+        last_viewed_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'shuffle_id',
+        ignoreDuplicates: true,
+      }
+    )
+
+    if (sharedError) {
+      return NextResponse.json(
+        {
+          error: createError(
+            'Failed to create shared shuffle record',
+            ErrorType.DATABASE,
+            ErrorSeverity.ERROR,
+            { supabaseError: sharedError },
+            'DATABASE_ERROR'
+          ),
+        },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      shareCode: shuffleData.share_code,
-      shareUrl: `${baseUrl}/shared/${encodeURIComponent(shuffleData.share_code)}`,
+      shareCode,
+      shuffle: updatedShuffle,
     })
   } catch (error) {
-    console.error('Unexpected error sharing shuffle:', error)
-    return NextResponse.json(
-      {
-        error: 'An unexpected error occurred',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
+    console.error('Error sharing shuffle:', error)
+    const appError = createError(
+      'Failed to share shuffle',
+      ErrorType.SHUFFLE,
+      ErrorSeverity.ERROR,
+      { originalError: error instanceof Error ? error.message : String(error) },
+      'SHUFFLE_SHARE_ERROR'
     )
+
+    return NextResponse.json({ error: appError }, { status: 500 })
   }
 }

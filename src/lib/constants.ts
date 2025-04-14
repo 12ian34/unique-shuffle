@@ -1,28 +1,36 @@
-export const GAME_SETTINGS = {
-  MAX_SHUFFLES: 100,
-  MAX_CARDS_PER_SHUFFLE: 7,
-  ACHIEVEMENTS_ENABLED: true,
-  LEADERBOARD_ENABLED: true,
-  DEFAULT_DECK_SIZE: 52,
-} as const
+// Global application constants
 
-export const API_ENDPOINTS = {
-  SHUFFLES: '/api/shuffles',
-  STATS: '/api/stats',
-  ACHIEVEMENTS: '/api/achievements',
-  LEADERBOARD: '/api/leaderboard',
-} as const
+// Global shuffles tracking key
+export const GLOBAL_SHUFFLES_KEY = 'global_shuffles_count'
 
-export const STORAGE_KEYS = {
-  USER_STATS: 'user_stats',
-  UNLOCKED_ACHIEVEMENTS: 'unlocked_achievements',
-  LAST_SHUFFLE: 'last_shuffle',
-} as const
+// Navigation
+export const NAVIGATION_ITEMS = [
+  { name: 'Shuffle', path: '/' },
+  { name: 'Achievements', path: '/achievements' },
+  { name: 'Leaderboard', path: '/leaderboard' },
+  { name: 'Profile', path: '/profile' },
+  { name: 'About', path: '/about' },
+]
 
-export const ERROR_MESSAGES = {
-  INVALID_SHUFFLE: 'Invalid shuffle configuration',
-  MAX_SHUFFLES_REACHED: 'Maximum number of shuffles reached',
-  INVALID_CARD_COUNT: 'Invalid number of cards requested',
-  NETWORK_ERROR: 'Network error occurred',
-  UNKNOWN_ERROR: 'An unknown error occurred',
-} as const 
+// Card layout
+export const GRID_COLS = 13
+export const GRID_ROWS = 4
+
+// Authentication
+export const MIN_USERNAME_LENGTH = 3
+export const MAX_USERNAME_LENGTH = 20
+
+// Shuffle settings
+export const MAX_SAVED_SHUFFLES = 100
+export const MAX_SHARED_SHUFFLES = 50
+
+// Achievement notification timeout (ms)
+export const ACHIEVEMENT_NOTIFICATION_TIMEOUT = 5000
+
+// Page sizes
+export const LEADERBOARD_PAGE_SIZE = 20
+export const SHUFFLE_HISTORY_PAGE_SIZE = 10
+export const ACHIEVEMENTS_PAGE_SIZE = 15
+
+// Stats refresh interval (ms)
+export const STATS_REFRESH_INTERVAL = 30000

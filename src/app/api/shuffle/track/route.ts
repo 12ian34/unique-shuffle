@@ -1,272 +1,308 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServer } from '@/lib/supabase-server'
-import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { generateUsername } from '@/utils/username-generator'
-import * as achievementChecks from '@/lib/achievement-checks'
-import { getUnlockedAchievements } from '@/lib/achievements'
+import { createClient } from '@/lib/supabase-server'
+import { checkAchievements } from '@/lib/achievements'
+import supabaseAdmin from '@/lib/supabase-admin'
+import { Achievement } from '@/types'
+import { createClient as createBrowserClient } from '@supabase/supabase-js'
+import { User } from '@supabase/supabase-js'
+import {
+  ErrorType,
+  ErrorSeverity,
+  createError,
+  createAuthError,
+  createDatabaseError,
+  createValidationError,
+} from '@/lib/errors'
 
+// Track a new shuffle
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServer()
-  const supabaseAdmin = createSupabaseAdmin()
+  console.log('📥 Received shuffle track request')
+
+  // Set CORS headers for credential-included requests
+  const origin = request.headers.get('origin') || ''
+  const headers = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
+
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { headers, status: 204 })
+  }
 
   try {
-    // Parse request data
-    const requestData = await request.json()
-    const { is_saved = false, cards = [] } = requestData
+    const { cards } = await request.json()
+    console.log('🎲 Cards data received, length:', cards?.length || 0)
 
-    console.log('Tracking shuffle, is_saved:', is_saved)
+    if (!cards || !Array.isArray(cards) || cards.length === 0) {
+      const error = createValidationError('Invalid or empty cards data', {
+        providedLength: cards?.length || 0,
+      })
+      return NextResponse.json({ error }, { status: 400, headers })
+    }
 
-    // Get current user (may be null for anonymous shuffles)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    // Check for Authorization header first
+    const authHeader = request.headers.get('Authorization')
+    let user: User | null = null
 
-    const userId = user?.id || null
-    console.log('User ID for shuffle tracking:', userId || 'anonymous')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      console.log('🔑 Found Authorization header')
+      const token = authHeader.substring(7) // Remove "Bearer " prefix
 
-    // Insert shuffle event into global_shuffles table
-    const { data, error } = await supabaseAdmin
-      .from('global_shuffles')
-      .insert([
+      // Initialize a Supabase client to verify the token
+      const supabaseClient = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
-          user_id: userId,
-          is_saved,
-          cards,
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-
-    if (error) {
-      console.error('Failed to track shuffle:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    console.log('Successfully tracked shuffle, data:', data)
-
-    // Get current count after insertion
-    const { count: currentCount, error: countError } = await supabaseAdmin
-      .from('global_shuffles')
-      .select('*', { count: 'exact', head: true })
-
-    if (countError) {
-      console.error('Error getting updated count:', countError)
-    } else {
-      console.log('Current global shuffle count after insertion:', currentCount)
-    }
-
-    // Include count in the response for easier debugging
-    const responseData = {
-      success: true,
-      data,
-      count: countError ? null : currentCount,
-    }
-
-    // For logged-in users, check for achievements on EVERY shuffle, not just saved ones
-    if (userId) {
-      try {
-        // Check for pattern-based achievements in the current shuffle
-        const patternBasedAchievements = []
-
-        // Check for pattern achievements
-        if (achievementChecks.hasTripleAcesFirst(cards)) {
-          patternBasedAchievements.push('triple_aces_first')
+          auth: {
+            persistSession: false, // Don't persist the session
+            autoRefreshToken: false,
+          },
         }
+      )
 
-        if (achievementChecks.hasSequentialSameSuit(cards)) {
-          patternBasedAchievements.push('sequential_shuffle')
-        }
+      // Verify the token
+      const { data: userData, error: verifyError } = await supabaseClient.auth.getUser(token)
 
-        if (achievementChecks.hasThreePairs(cards)) {
-          patternBasedAchievements.push('three_pairs')
-        }
+      if (verifyError) {
+        console.error('❌ Error verifying token:', verifyError)
 
-        if (achievementChecks.hasSymmetricShuffle(cards)) {
-          patternBasedAchievements.push('symmetric_shuffle')
-        }
+        // Fall back to cookie-based auth
+        console.log('🍪 Falling back to cookie-based auth')
+        const supabase = await createClient()
+        const { data: cookieUser, error: cookieError } = await supabase.auth.getUser()
 
-        if (achievementChecks.hasRainbowShuffle(cards)) {
-          patternBasedAchievements.push('rainbow_shuffle')
-        }
-
-        if (achievementChecks.hasRoyalFlush(cards)) {
-          patternBasedAchievements.push('royal_flush')
-        }
-
-        if (achievementChecks.hasAllQueensEarly(cards)) {
-          patternBasedAchievements.push('lady_luck')
-        }
-
-        if (achievementChecks.hasFiveSameSuitInRow(cards)) {
-          patternBasedAchievements.push('suited_up')
-        }
-
-        if (achievementChecks.hasOnlyEvenCardsFirst(cards)) {
-          patternBasedAchievements.push('even_steven')
-        }
-
-        if (achievementChecks.hasAllAces(cards)) {
-          patternBasedAchievements.push('ace_hunter')
-        }
-
-        if (achievementChecks.has007Pattern(cards)) {
-          patternBasedAchievements.push('agent_007')
-        }
-
-        if (achievementChecks.hasBlackjack(cards)) {
-          patternBasedAchievements.push('blackjack')
-        }
-
-        if (achievementChecks.hasFiveFaceCardsInRow(cards)) {
-          patternBasedAchievements.push('high_roller')
-        }
-
-        if (achievementChecks.hasPerfectSequentialOrder(cards)) {
-          patternBasedAchievements.push('perfect_shuffle')
-        }
-
-        // Check time-based achievements
-        const timeChecks = achievementChecks.checkTimeBasedAchievements()
-
-        if (timeChecks.isMidnight) {
-          patternBasedAchievements.push('midnight_shuffle')
-        }
-
-        if (timeChecks.isMorning) {
-          // Just mark the achievement - we'll need streak tracking for the full achievement
-          patternBasedAchievements.push('morning_routine_single')
-        }
-
-        if (timeChecks.isWeekend) {
-          // Just mark the achievement - we'll need streak tracking for the full achievement
-          patternBasedAchievements.push('weekend_warrior_single')
-        }
-
-        if (timeChecks.isNightTime) {
-          patternBasedAchievements.push('night_owl_single')
-        }
-
-        if (timeChecks.isTopOfHour) {
-          patternBasedAchievements.push('shuffle_o_clock')
-        }
-
-        if (timeChecks.isNewYearsDay) {
-          patternBasedAchievements.push('new_year_shuffle')
-        }
-
-        if (timeChecks.isMonday) {
-          // Just mark the achievement - we'll need streak tracking for full achievement
-          patternBasedAchievements.push('monday_blues_single')
-        }
-
-        if (timeChecks.isLeapDay) {
-          patternBasedAchievements.push('leap_day')
-        }
-
-        if (timeChecks.isFridayThe13th) {
-          patternBasedAchievements.push('friday_13')
-        }
-
-        if (timeChecks.isPalindromeDate) {
-          patternBasedAchievements.push('palindrome_shuffle')
-        }
-
-        // If we found any pattern-based achievements, store them
-        if (patternBasedAchievements.length > 0) {
-          // Store the pattern achievements for this user
-          try {
-            await supabaseAdmin.from('user_achievements').insert(
-              patternBasedAchievements.map((achievementId) => ({
-                user_id: userId,
-                achievement_id: achievementId,
-                shuffle_id: data[0]?.id,
-                achieved_at: new Date().toISOString(),
-              }))
-            )
-            console.log(`Stored ${patternBasedAchievements.length} pattern-based achievements`)
-          } catch (achievementError) {
-            console.error('Error storing pattern achievements:', achievementError)
-          }
-        }
-
-        // Check if user has a leaderboard entry
-        const { data: leaderboardData, error: leaderboardFetchError } = await supabaseAdmin
-          .from('leaderboard')
-          .select('total_shuffles, shuffle_streak')
-          .eq('user_id', userId)
-          .single()
-
-        if (!leaderboardFetchError) {
-          // Leaderboard entry exists, update it
-          const updatedTotalShuffles = (leaderboardData?.total_shuffles || 0) + 1
-
-          console.log(
-            `Updating leaderboard for user ${userId}: ${
-              leaderboardData?.total_shuffles || 0
-            } -> ${updatedTotalShuffles} shuffles`
-          )
-
-          await supabaseAdmin
-            .from('leaderboard')
-            .update({
-              total_shuffles: updatedTotalShuffles,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-        } else {
-          // Leaderboard entry doesn't exist, create one
-          console.log(`Creating new leaderboard entry for user ${userId}`)
-
-          await supabaseAdmin.from('leaderboard').insert([
-            {
-              user_id: userId,
-              username: user?.email?.split('@')[0] || generateUsername(userId),
-              total_shuffles: 1,
-              shuffle_streak: 0,
-              achievements_count: 0,
-              updated_at: new Date().toISOString(),
-            },
-          ])
-        }
-
-        // Update achievements based on the latest stats
-        try {
-          console.log('Updating achievements after tracking shuffle')
-          // Use absolute URL for server-side API calls
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-          const achievementResponse = await fetch(`${baseUrl}/api/achievements`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ userId }),
+        if (cookieError) {
+          console.error('❌ Cookie auth also failed:', cookieError)
+          const error = createAuthError('Authentication failed', {
+            details: 'Invalid token and cookie auth failed',
+            tokenError: verifyError.message,
+            cookieError: cookieError.message,
           })
-
-          if (!achievementResponse.ok) {
-            console.error('Achievement update failed with status:', achievementResponse.status)
-          } else {
-            const achievementData = await achievementResponse.json()
-            console.log('Achievements updated:', achievementData.count, 'achievements')
-          }
-        } catch (achievementError) {
-          // Just log the error but don't fail the shuffle tracking
-          console.error('Failed to update achievements:', achievementError)
+          return NextResponse.json({ error }, { status: 401, headers })
         }
-      } catch (leaderboardError) {
-        console.error('Error updating leaderboard:', leaderboardError)
-        // Don't fail the request for leaderboard update errors
+
+        if (!cookieUser.user) {
+          console.log('👤 No authenticated user found via cookies')
+          return NextResponse.json({ success: true, saved: false }, { headers })
+        }
+
+        user = cookieUser.user
+      } else {
+        user = userData.user
+      }
+    } else {
+      // No Authorization header, try cookie-based auth
+      console.log('🍪 No Authorization header, using cookie-based auth')
+      const supabase = await createClient()
+      const { data: cookieUser, error: cookieError } = await supabase.auth.getUser()
+
+      if (cookieError) {
+        console.error('❌ Cookie auth failed:', cookieError)
+        const error = createAuthError('Cookie authentication failed', {
+          cookieError: cookieError.message,
+        })
+        return NextResponse.json({ error }, { status: 401, headers })
+      }
+
+      if (!cookieUser.user) {
+        console.log('👤 No authenticated user found via cookies')
+        return NextResponse.json({ success: true, saved: false }, { headers })
+      }
+
+      user = cookieUser.user
+    }
+
+    if (!user) {
+      console.log('👤 No authenticated user found via any method')
+      return NextResponse.json(
+        {
+          success: true,
+          saved: false,
+          message: 'Anonymous shuffle - not saved to profile',
+        },
+        { headers }
+      )
+    }
+
+    console.log('✅ User authenticated, saving shuffle for user:', user.id)
+
+    // Use admin client for the rest of the operations to avoid RLS issues
+    const supabaseAdmin = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+        },
+      }
+    )
+
+    // Check if there's an existing row in the users table
+    const { data: existingUser, error: userQueryError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (userQueryError && userQueryError.code !== 'PGRST116') {
+      console.error('Error fetching user data from database:', userQueryError)
+      const error = createDatabaseError('Error fetching user data from database', {
+        originalError: userQueryError,
+        userId: user.id,
+      })
+      return NextResponse.json({ error }, { status: 500, headers })
+    }
+
+    // Get current user shuffle count
+    const shuffleCount = existingUser ? existingUser.total_shuffles + 1 : 1
+
+    // Save the shuffle
+    const { data: shuffle, error: shuffleError } = await supabaseAdmin
+      .from('shuffles')
+      .insert({
+        user_id: user.id,
+        cards,
+      })
+      .select()
+      .single()
+
+    if (shuffleError) {
+      console.error('Error saving shuffle to database:', shuffleError)
+      const error = createDatabaseError('Failed to save shuffle to database', {
+        originalError: shuffleError,
+        userId: user.id,
+      })
+      return NextResponse.json({ error }, { status: 500, headers })
+    }
+
+    console.log('Shuffle saved successfully:', shuffle.id)
+
+    // Check for achievements
+    let achievements: Achievement[] = []
+    if (cards) {
+      achievements = checkAchievements(cards, shuffleCount)
+
+      // Save earned achievements
+      if (achievements.length > 0 && user) {
+        for (const achievement of achievements) {
+          // Check if user already has this achievement on this specific shuffle
+          const { data: existingAchievement, error: fetchError } = await supabaseAdmin
+            .from('achievements')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('achievement_id', achievement.id)
+            .eq('shuffle_id', shuffle.id)
+            .maybeSingle()
+
+          if (fetchError) {
+            console.error('Error checking existing achievement:', fetchError)
+            continue
+          }
+
+          // Only insert if this exact achievement hasn't been recorded for this shuffle
+          if (!existingAchievement) {
+            // Insert new achievement
+            const { error: insertError } = await supabaseAdmin.from('achievements').insert({
+              user_id: user.id,
+              achievement_id: achievement.id,
+              shuffle_id: shuffle.id,
+              // count field is now automatically set to 1 by database default
+            })
+
+            if (insertError) {
+              console.error('Error saving new achievement:', insertError)
+            } else {
+              console.log(`Saved new achievement "${achievement.id}"`)
+            }
+          }
+        }
       }
     }
 
-    return NextResponse.json(responseData)
+    // Update user stats
+    if (existingUser) {
+      // Calculate streak - we rely on the database trigger to update it correctly
+      // Just making sure we're not overriding it here
+
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update({
+          total_shuffles: shuffleCount,
+          last_shuffle_date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+          updated_at: new Date().toISOString(),
+          // Don't set shuffle_streak here as it's handled by the database trigger
+        })
+        .eq('id', user.id)
+
+      if (updateError) {
+        console.error('Error updating user stats:', updateError)
+        const error = createDatabaseError('Failed to update user stats', {
+          originalError: updateError,
+          userId: user.id,
+        })
+        return NextResponse.json(
+          {
+            error,
+            shuffle,
+            shuffleCount,
+          },
+          { status: 500, headers }
+        )
+      }
+
+      // Get the updated user data to return the current streak
+      const { data: updatedUser, error: fetchUpdatedUserError } = await supabaseAdmin
+        .from('users')
+        .select('total_shuffles, shuffle_streak, last_shuffle_date')
+        .eq('id', user.id)
+        .single()
+
+      if (fetchUpdatedUserError) {
+        console.error('Error fetching updated user data:', fetchUpdatedUserError)
+      } else {
+        console.log('Updated user stats:', updatedUser)
+      }
+
+      console.log('User stats updated successfully, new count:', shuffleCount)
+
+      // Return updated user stats in the response
+      return NextResponse.json(
+        {
+          success: true,
+          saved: true,
+          shuffle,
+          shuffleCount,
+          achievements,
+          userStats: updatedUser || {
+            total_shuffles: shuffleCount,
+            // If we couldn't fetch updated user, return at least the count
+          },
+        },
+        { headers }
+      )
+    } else {
+      console.error('User profile not found in database:', user.id)
+      const error = createError(
+        'User profile not found',
+        ErrorType.DATABASE,
+        ErrorSeverity.ERROR,
+        { userId: user.id },
+        'USER_NOT_FOUND'
+      )
+      return NextResponse.json({ error }, { status: 404, headers })
+    }
   } catch (error) {
-    console.error('Unexpected error tracking shuffle:', error)
-    return NextResponse.json(
-      {
-        error: 'An unexpected error occurred',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
+    console.error('Error tracking shuffle:', error)
+    const appError = createError(
+      'Failed to track shuffle',
+      ErrorType.SHUFFLE,
+      ErrorSeverity.ERROR,
+      { originalError: error instanceof Error ? error.message : String(error) },
+      'SHUFFLE_TRACK_ERROR'
     )
+    return NextResponse.json({ error: appError }, { status: 500, headers })
   }
 }

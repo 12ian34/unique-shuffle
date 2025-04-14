@@ -1,5 +1,6 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -13,46 +14,44 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
+        get(name) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
+        set(name, value, options) {
           response.cookies.set({
             name,
             value,
             ...options,
           })
         },
-        remove(name: string, options: CookieOptions) {
+        remove(name, options) {
           response.cookies.set({
             name,
             value: '',
             ...options,
+            maxAge: 0,
           })
         },
       },
     }
   )
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // If user is not signed in and the current path is not /auth
-  // redirect the user to /auth
-  if (!session && request.nextUrl.pathname !== '/auth') {
-    return NextResponse.redirect(new URL('/auth', request.url))
-  }
-
-  // If user is signed in and the current path is /auth
-  // redirect the user to /
-  if (session && request.nextUrl.pathname === '/auth') {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
+  // Refresh session if expired
+  await supabase.auth.getSession()
 
   return response
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.svg).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public/* (public files)
+     * - api/* (API routes)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public/|api/).*)',
+  ],
 }

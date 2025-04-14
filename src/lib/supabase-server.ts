@@ -1,10 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { CookieOptions } from '@supabase/ssr'
 import { Database } from '@/types/supabase'
 
-// Server-side Supabase client that respects RLS policies
-export async function createSupabaseServer() {
+export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient<Database>(
@@ -12,16 +10,45 @@ export async function createSupabaseServer() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
+        get(name) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+        set(name, value, options) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Can't set cookies in middleware
+          }
         },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options })
+        remove(name, options) {
+          try {
+            cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+          } catch (error) {
+            // Can't remove cookies in middleware
+          }
         },
       },
     }
   )
 }
+
+export async function getCurrentUser() {
+  const supabase = await createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return user
+  } catch (error) {
+    console.error('Error getting current user:', error)
+    return null
+  }
+}
+
+export const supabaseServer = {
+  createClient,
+  getCurrentUser,
+}
+
+export default supabaseServer

@@ -3,110 +3,142 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
-      leaderboard: {
+      users: {
         Row: {
-          user_id: string
+          id: string
           username: string
+          email: string
           total_shuffles: number
           shuffle_streak: number
-          achievements_count: number
+          last_shuffle_date: string | null
+          created_at: string
           updated_at: string
         }
         Insert: {
-          user_id: string
-          username?: string
+          id: string
+          username: string
+          email: string
           total_shuffles?: number
           shuffle_streak?: number
-          achievements_count?: number
+          last_shuffle_date?: string | null
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          user_id?: string
+          id?: string
           username?: string
+          email?: string
           total_shuffles?: number
           shuffle_streak?: number
-          achievements_count?: number
+          last_shuffle_date?: string | null
+          created_at?: string
           updated_at?: string
         }
       }
       shuffles: {
         Row: {
-          id: number
-          user_id: string
-          cards: Json
-          created_at: string
-        }
-        Insert: {
-          id?: number
-          user_id: string
-          cards: Json
-          created_at?: string
-        }
-        Update: {
-          id?: number
-          user_id?: string
-          cards?: Json
-          created_at?: string
-        }
-      }
-      global_shuffles: {
-        Row: {
-          id: number
+          id: string
           user_id: string | null
+          cards: Json
           is_saved: boolean
-          cards: Json
-          created_at: string
-          share_code: string | null
           is_shared: boolean
-        }
-        Insert: {
-          id?: number
-          user_id?: string | null
-          is_saved?: boolean
-          cards: Json
-          created_at?: string
-          share_code?: string | null
-          is_shared?: boolean
-        }
-        Update: {
-          id?: number
-          user_id?: string | null
-          is_saved?: boolean
-          cards?: Json
-          created_at?: string
-          share_code?: string | null
-          is_shared?: boolean
-        }
-      }
-      users: {
-        Row: {
-          id: string
-          email: string
+          share_code: string | null
           created_at: string
         }
         Insert: {
-          id: string
-          email: string
+          id?: string
+          user_id?: string | null
+          cards: Json
+          is_saved?: boolean
+          is_shared?: boolean
+          share_code?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          email?: string
+          user_id?: string | null
+          cards?: Json
+          is_saved?: boolean
+          is_shared?: boolean
+          share_code?: string | null
           created_at?: string
+        }
+      }
+      achievements: {
+        Row: {
+          id: string
+          user_id: string
+          achievement_id: string
+          shuffle_id: string | null
+          achieved_at: string
+          count: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          achievement_id: string
+          shuffle_id?: string | null
+          achieved_at?: string
+          count?: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          achievement_id?: string
+          shuffle_id?: string | null
+          achieved_at?: string
+          count?: number
+        }
+      }
+      shared_shuffles: {
+        Row: {
+          id: string
+          shuffle_id: string
+          views: number
+          last_viewed_at: string
+        }
+        Insert: {
+          id?: string
+          shuffle_id: string
+          views?: number
+          last_viewed_at?: string
+        }
+        Update: {
+          id?: string
+          shuffle_id?: string
+          views?: number
+          last_viewed_at?: string
+        }
+      }
+      friends: {
+        Row: {
+          id: string
+          user_id: string
+          friend_id: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          friend_id: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          friend_id?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
       }
     }
     Views: {
-      shuffles_view: {
-        Row: {
-          id: number
-          user_id: string | null
-          cards: Json
-          created_at: string
-          share_code: string | null
-          is_shared: boolean
-        }
-      }
+      [_ in never]: never
     }
     Functions: {
       [_ in never]: never

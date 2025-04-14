@@ -1,91 +1,95 @@
-// Fun adjectives for username generation
+// Arrays of components to build usernames
 const adjectives = [
-  'Swift',
-  'Clever',
-  'Cosmic',
-  'Dazzling',
-  'Electric',
-  'Funky',
-  'Groovy',
-  'Hyper',
-  'Jazzy',
-  'Lunar',
-  'Mighty',
-  'Nimble',
-  'Orbiting',
-  'Plucky',
-  'Quantum',
-  'Radiant',
-  'Stellar',
-  'Turbo',
-  'Ultra',
-  'Vibrant',
-  'Wacky',
-  'Zealous',
-  'Astral',
-  'Bouncy',
-  'Chromatic',
-  'Dynamic',
-  'Epic',
-  'Feisty',
-  'Glowing',
-  'Heroic',
-  'Iconic',
-  'Jumbo',
+  'swift',
+  'brave',
+  'lucky',
+  'clever',
+  'mighty',
+  'nimble',
+  'quick',
+  'sharp',
+  'smart',
+  'spry',
+  'keen',
+  'slick',
+  'bold',
+  'deft',
+  'grand',
+  'noble',
+  'proud',
+  'wise',
+  'calm',
+  'cool',
+  'eager',
+  'glad',
+  'kind',
+  'nice',
+  'wild',
+  'zany',
+  'jolly',
+  'merry',
+  'free',
+  'busy',
 ]
 
-// Fun nouns for username generation
 const nouns = [
-  'Panda',
-  'Dragon',
-  'Phoenix',
-  'Wizard',
-  'Ninja',
-  'Pirate',
-  'Robot',
-  'Astronaut',
-  'Rocket',
-  'Comet',
-  'Tiger',
-  'Dolphin',
-  'Eagle',
-  'Griffin',
-  'Pegasus',
-  'Sasquatch',
-  'Unicorn',
-  'Viking',
-  'Samurai',
-  'Titan',
-  'Voyager',
-  'Warrior',
-  'Champion',
-  'Pixie',
-  'Knight',
-  'Ranger',
-  'Explorer',
-  'Pioneer',
-  'Magician',
-  'Drummer',
-  'Dancer',
-  'Turtle',
+  'ace',
+  'king',
+  'queen',
+  'jack',
+  'joker',
+  'dealer',
+  'card',
+  'deck',
+  'game',
+  'play',
+  'hand',
+  'trick',
+  'suit',
+  'club',
+  'spade',
+  'heart',
+  'diamond',
+  'flush',
+  'pair',
+  'royal',
+  'poker',
+  'bridge',
+  'score',
+  'point',
+  'match',
+  'round',
+  'win',
+  'draw',
+  'deal',
+  'stack',
 ]
 
 /**
- * Generates a fun and unique username based on a user ID
- *
- * @param userId - The user's ID to use as a seed
- * @returns A fun username like "SwiftPanda42" or "CosmicDragon77"
+ * Generate a random username in the format "adjectivenoun123"
+ * @returns {string} A randomly generated username
  */
-export function generateUsername(userId: string): string {
-  // Use parts of the userId to create deterministic but random-seeming selections
-  const firstChar = userId.charCodeAt(0) % adjectives.length
-  const secondChar = userId.charCodeAt(1) % nouns.length
+export function generateUsername(): string {
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)]
+  const noun = nouns[Math.floor(Math.random() * nouns.length)]
+  const number = Math.floor(Math.random() * 1000)
 
-  // Get a number from the userId to append to the username
-  const numericValue = ((userId.charCodeAt(2) % 10) * 10 + (userId.charCodeAt(3) % 10)) % 100
-
-  const adjective = adjectives[firstChar]
-  const noun = nouns[secondChar]
-
-  return `${adjective}${noun}${numericValue}`
+  return `${adjective}${noun}${number}`
 }
+
+/**
+ * Generate a list of random usernames
+ * @param {number} count Number of usernames to generate
+ * @returns {string[]} Array of randomly generated usernames
+ */
+export function generateMultipleUsernames(count: number): string[] {
+  const usernames: string[] = []
+
+  for (let i = 0; i < count; i++) {
+    usernames.push(generateUsername())
+  }
+
+  return usernames
+}
+
+export default generateUsername

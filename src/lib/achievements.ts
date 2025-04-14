@@ -1,569 +1,1272 @@
-import { Achievement, UserStats } from '@/types'
-import { getCardKey } from '@/lib/cards'
+import { Achievement, Deck, Pattern, Suit, Card } from '@/types'
+import {
+  findPokerHands,
+  areCardsFlush,
+  doCardsAlternateColors,
+  findConsecutivePokerHands,
+  areCardsInSequence,
+} from './cards'
 
-// Achievement categories
-export enum AchievementCategory {
-  SHUFFLE_COUNT = 'shuffle_count',
-  SHUFFLE_PATTERNS = 'shuffle_patterns',
-  TIME_BASED = 'time_based',
-  STREAKS = 'streaks',
-  SPECIAL_SHUFFLES = 'special_shuffles',
-  MILESTONES = 'milestones',
-  POP_CULTURE = 'pop_culture',
-  QUIRKY = 'quirky',
-}
+// Import the ranks from cards.ts
+import { ranks } from './cards'
 
-// Define available achievements
-export const ACHIEVEMENTS: Achievement[] = [
-  // Shuffle count achievements
-  {
-    id: 'shuffle_10',
-    name: 'Novice Shuffler',
-    description: 'Complete 10 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 10,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-  {
-    id: 'shuffle_50',
-    name: 'Card Enthusiast',
-    description: 'Complete 50 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 50,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-  {
-    id: 'shuffle_100',
-    name: 'Shuffle Master',
-    description: 'Complete 100 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 100,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-  {
-    id: 'shuffle_250',
-    name: 'Deck Dominator',
-    description: 'Complete 250 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 250,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-  {
-    id: 'shuffle_500',
-    name: 'Card Connoisseur',
-    description: 'Complete 500 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 500,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-  {
-    id: 'shuffle_1000',
-    name: 'Legendary Shuffler',
-    description: 'Complete 1000 shuffles',
-    condition: (stats: UserStats) => stats.total_shuffles >= 1000,
-    category: AchievementCategory.SHUFFLE_COUNT,
-  },
-
-  // Streak achievements
-  {
-    id: 'streak_3',
-    name: 'Consistent Shuffler',
-    description: 'Maintain a 3-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 3,
-    category: AchievementCategory.STREAKS,
-  },
-  {
-    id: 'streak_7',
-    name: 'Weekly Devotee',
-    description: 'Maintain a 7-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 7,
-    category: AchievementCategory.STREAKS,
-  },
-  {
-    id: 'streak_14',
-    name: 'Card Aficionado',
-    description: 'Maintain a 14-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 14,
-    category: AchievementCategory.STREAKS,
-  },
-  {
-    id: 'streak_30',
-    name: 'Dedicated Shuffler',
-    description: 'Maintain a 30-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 30,
-    category: AchievementCategory.STREAKS,
-  },
-  {
-    id: 'streak_90',
-    name: 'Seasonal Devotee',
-    description: 'Maintain a 90-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 90,
-    category: AchievementCategory.STREAKS,
-  },
-  {
-    id: 'streak_365',
-    name: 'Year-Round Shuffler',
-    description: 'Maintain a 365-day shuffle streak',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 365,
-    category: AchievementCategory.STREAKS,
-  },
-
-  // Special shuffle patterns (can only be achieved by repeated shuffling)
-  {
-    id: 'triple_aces_first',
-    name: 'Triple Aces',
-    description: 'Get 3 Aces in the first 5 cards of your shuffle',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
-  {
-    id: 'sequential_shuffle',
-    name: 'Sequential Genius',
-    description: 'Get 3 consecutive cards of the same suit in sequence',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
-  {
-    id: 'three_pairs',
-    name: 'Three Pairs',
-    description: 'Get 3 pairs of the same value in a single shuffle',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
-  {
-    id: 'symmetric_shuffle',
-    name: 'Symmetric Shuffle',
-    description: 'Get a shuffle with perfect red/black alternating pattern',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
-  {
-    id: 'rainbow_shuffle',
-    name: 'Rainbow Shuffle',
-    description: 'Get all four suits in the first four cards',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
+// Define the available achievements
+export const achievements: Achievement[] = [
+  // Pattern-based achievements
   {
     id: 'royal_flush',
     name: 'Royal Flush',
+    description: 'Find 5 consecutive cards forming a royal flush',
+    type: 'pattern',
+    criteria: { patternId: 'royal_flush' },
+  },
+  {
+    id: 'straight_flush',
+    name: 'Straight Flush',
+    description: 'Find 5 consecutive cards forming a straight flush',
+    type: 'pattern',
+    criteria: { patternId: 'straight_flush' },
+  },
+  {
+    id: 'four_of_a_kind',
+    name: 'Four of a Kind',
+    description: 'Find 4 consecutive cards of the same rank',
+    type: 'pattern',
+    criteria: { patternId: 'four_of_a_kind' },
+  },
+  {
+    id: 'full_house',
+    name: 'Full House',
+    description: 'Find a full house within 5 consecutive cards',
+    type: 'pattern',
+    criteria: { patternId: 'full_house' },
+  },
+  {
+    id: 'flush',
+    name: 'Flush',
+    description: 'Find 5 consecutive cards of the same suit',
+    type: 'pattern',
+    criteria: { patternId: 'flush' },
+  },
+  {
+    id: 'straight',
+    name: 'Straight',
+    description: 'Find 5 consecutive cards in sequence',
+    type: 'pattern',
+    criteria: { patternId: 'straight' },
+  },
+  {
+    id: 'three_of_a_kind',
+    name: 'Three of a Kind',
+    description: 'Find 3 consecutive cards of the same rank',
+    type: 'pattern',
+    criteria: { patternId: 'three_of_a_kind' },
+  },
+  {
+    id: 'two_pair',
+    name: 'Two Pair',
+    description: 'Find two pairs in four consecutive cards (e.g., 5-5-9-9)',
+    type: 'pattern',
+    criteria: { patternId: 'two_pair' },
+  },
+  {
+    id: 'alternating_colors',
+    name: 'Alternating Colors',
+    description: 'Shuffle with perfectly alternating colors',
+    type: 'pattern',
+    criteria: { patternId: 'alternating_colors' },
+  },
+  {
+    id: 'all_red',
+    name: 'Seeing Red',
+    description: 'First 13 cards are all red',
+    type: 'pattern',
+    criteria: { patternId: 'all_red' },
+  },
+  {
+    id: 'all_black',
+    name: 'Back in Black',
+    description: 'First 13 cards are all black',
+    type: 'pattern',
+    criteria: { patternId: 'all_black' },
+  },
+  {
+    id: 'four_aces',
+    name: 'Ace Collector',
+    description: 'All four aces in a row',
+    type: 'pattern',
+    criteria: { patternId: 'four_aces' },
+  },
+  // Creative new achievements
+  {
+    id: 'royal_family',
+    name: 'Royal Family',
+    description: 'Find 4 consecutive face cards (J, Q, K) in a row',
+    type: 'pattern',
+    criteria: { patternId: 'royal_family' },
+  },
+  {
+    id: 'lucky_thirteen',
+    name: 'Lucky Thirteen',
+    description: 'Card #13 in your shuffle is an Ace',
+    type: 'pattern',
+    criteria: { patternId: 'lucky_thirteen' },
+  },
+  {
+    id: 'perfect_suit',
+    name: 'Perfect Suit',
+    description: 'Find at least 6 cards of the same suit in a row',
+    type: 'pattern',
+    criteria: { patternId: 'perfect_suit' },
+  },
+  {
+    id: 'stairway_to_heaven',
+    name: 'Stairway to Heaven',
+    description: 'Find 7 consecutive cards in ascending order',
+    type: 'pattern',
+    criteria: { patternId: 'stairway_to_heaven' },
+  },
+  {
+    id: 'highway_to_hell',
+    name: 'Highway to Hell',
+    description: 'Find 7 consecutive cards in descending order',
+    type: 'pattern',
+    criteria: { patternId: 'highway_to_hell' },
+  },
+  {
+    id: 'prime_position',
+    name: 'Prime Position',
+    description: 'Cards at positions 2, 3, 5, 7, 11, and 13 are of the same color',
+    type: 'pattern',
+    criteria: { patternId: 'prime_position' },
+  },
+  {
+    id: 'palindrome',
+    name: 'Palindrome',
     description:
-      'Get a royal flush (A, K, Q, J, 10 of the same suit) in order somewhere in your shuffle',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
+      'Find 6 consecutive cards with ranks that read the same forward and backward (e.g., 2-3-4-4-3-2)',
+    type: 'pattern',
+    criteria: { patternId: 'palindrome' },
   },
   {
-    id: 'lady_luck',
-    name: 'Lady Luck',
-    description: 'Get all the Queens in the first 10 cards',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
+    id: 'four_corners',
+    name: 'Four Corners',
+    description: 'All four corners of the deck (1st, 13th, 40th, and 52nd cards) are the same suit',
+    type: 'pattern',
+    criteria: { patternId: 'four_corners' },
   },
   {
-    id: 'suited_up',
-    name: 'Suited Up',
-    description: 'Get 5 cards of the same suit in a row',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
+    id: 'unlucky_shuffle',
+    name: 'Unlucky Shuffle',
+    description: 'Position 13 contains a spade and position 13 is a K',
+    type: 'pattern',
+    criteria: { patternId: 'unlucky_shuffle' },
   },
   {
-    id: 'even_steven',
-    name: 'Even Steven',
-    description: 'Get only even-numbered cards in the first 5 cards',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
-  },
-  {
-    id: 'ace_hunter',
-    name: 'Ace Hunter',
-    description: 'Get all 4 Aces in a single shuffle',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SHUFFLE_PATTERNS,
+    id: 'the_sandwich',
+    name: 'The Sandwich',
+    description:
+      'Find 3 consecutive cards where the middle card is of a different suit than the outer two (which have the same suit)',
+    type: 'pattern',
+    criteria: { patternId: 'the_sandwich' },
   },
 
-  // Special shuffle achievements
+  // Count-based achievements
   {
-    id: 'midnight_shuffle',
-    name: 'Midnight Shuffler',
-    description: 'Complete a shuffle between midnight and 3 AM',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
+    id: 'first_shuffle',
+    name: 'First Shuffle',
+    description: 'Complete your first shuffle',
+    type: 'count',
+    criteria: { shuffleCount: 1 },
   },
   {
-    id: 'morning_routine',
-    name: 'Morning Routine',
-    description: 'Complete shuffles on 5 consecutive mornings',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
+    id: 'ten_shuffles',
+    name: 'Shuffle Novice',
+    description: 'Complete 10 shuffles',
+    type: 'count',
+    criteria: { shuffleCount: 10 },
   },
   {
-    id: 'weekend_warrior',
-    name: 'Weekend Warrior',
-    description: 'Complete shuffles on 3 consecutive weekends',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
+    id: 'fifty_shuffles',
+    name: 'Shuffle Enthusiast',
+    description: 'Complete 50 shuffles',
+    type: 'count',
+    criteria: { shuffleCount: 50 },
   },
   {
-    id: 'shuffle_sprint',
-    name: 'Shuffle Sprint',
-    description: 'Complete 5 shuffles within one hour',
-    condition: (stats: UserStats) => {
-      // Placeholder - would need timestamp tracking
-      return stats.total_shuffles >= 25
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
+    id: 'hundred_shuffles',
+    name: 'Shuffle Master',
+    description: 'Complete 100 shuffles',
+    type: 'count',
+    criteria: { shuffleCount: 100 },
   },
   {
-    id: 'daily_double',
-    name: 'Daily Double',
-    description: 'Complete exactly 2 shuffles per day for 5 consecutive days',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
-  },
-  {
-    id: 'quick_draw',
-    name: 'Quick Draw',
-    description: 'Complete a shuffle in under 5 seconds',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
-  },
-  {
-    id: 'night_owl',
-    name: 'Night Owl',
-    description: 'Complete shuffles between 10 PM and 4 AM for 5 consecutive days',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
-    },
-    category: AchievementCategory.SPECIAL_SHUFFLES,
+    id: 'five_hundred_shuffles',
+    name: 'Shuffle Addict',
+    description: 'Complete 500 shuffles',
+    type: 'count',
+    criteria: { shuffleCount: 500 },
   },
 
   // Time-based achievements
   {
-    id: 'new_year_shuffle',
-    name: 'New Year Shuffle',
-    description: "Complete a shuffle on New Year's Day",
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
+    id: 'midnight_shuffle',
+    name: 'Night Owl',
+    description: 'Shuffle between midnight and 4 AM',
+    type: 'time',
+    criteria: {
+      timeOfDay: {
+        start: '00:00',
+        end: '04:00',
+      },
     },
-    category: AchievementCategory.TIME_BASED,
   },
   {
-    id: 'monday_blues',
-    name: 'Monday Blues',
-    description: 'Complete shuffles on 4 consecutive Mondays',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
+    id: 'weekend_warrior',
+    name: 'Weekend Warrior',
+    description: 'Shuffle on a weekend',
+    type: 'time',
+    criteria: {
+      dayOfWeek: [0, 6], // Sunday (0) and Saturday (6)
     },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'leap_day',
-    name: 'Leap of Faith',
-    description: 'Complete a shuffle on February 29 (Leap Day)',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'shuffle_marathon',
-    name: 'Shuffle Marathon',
-    description: 'Shuffle at least once every hour for 12 consecutive hours',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires streak tracking
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'holiday_shuffle',
-    name: 'Holiday Shuffler',
-    description: 'Complete shuffles on 3 different holidays',
-    condition: (stats: UserStats) => {
-      // Placeholder - requires holiday tracking
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'friday_13',
-    name: 'Friday the 13th',
-    description: 'Complete a shuffle on Friday the 13th',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'shuffle_o_clock',
-    name: "Shuffle o'Clock",
-    description: 'Complete a shuffle at exactly XX:00 (top of the hour)',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
-  },
-  {
-    id: 'palindrome_shuffle',
-    name: 'Palindrome Shuffle',
-    description: 'Complete a shuffle on a palindrome date (like 2/22/22)',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.TIME_BASED,
   },
 
-  // Milestone achievements
+  // New non-poker achievements
   {
-    id: 'first_shuffle',
-    name: 'First Steps',
-    description: 'Complete your first shuffle',
-    condition: (stats: UserStats) => stats.total_shuffles >= 1,
-    category: AchievementCategory.MILESTONES,
+    id: 'fibonacci_sequence',
+    name: 'Fibonacci Sequence',
+    description: 'Find 5 consecutive cards with values following a Fibonacci-like pattern',
+    type: 'pattern',
+    criteria: { patternId: 'fibonacci_sequence' },
   },
   {
-    id: 'five_in_a_day',
-    name: 'Daily Dedication',
-    description: 'Complete 5 shuffles in a single day',
-    condition: (stats: UserStats) => {
-      // This is a placeholder - actual implementation would need timestamps
-      // Require a decent number of shuffles
-      return stats.total_shuffles >= 15
-    },
-    category: AchievementCategory.MILESTONES,
+    id: 'rainbow',
+    name: 'Rainbow',
+    description: 'Find 4 consecutive cards with all 4 suits in alternating colors',
+    type: 'pattern',
+    criteria: { patternId: 'rainbow' },
   },
   {
-    id: 'seven_days',
-    name: 'Seven Days',
-    description: 'Shuffle every day for a week',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 7,
-    category: AchievementCategory.MILESTONES,
+    id: 'double_rainbow',
+    name: 'Double Rainbow',
+    description:
+      'Find 8 consecutive cards where 4 suits appear in order and repeat in the same order',
+    type: 'pattern',
+    criteria: { patternId: 'double_rainbow' },
   },
   {
-    id: 'persistence',
-    name: 'Persistence',
-    description: 'Return to shuffling after missing a day in your streak',
-    condition: (stats: UserStats) => {
-      // This requires tracking previous streak breaks
-      // For now, assume anyone with enough shuffles has probably done this
-      return stats.total_shuffles >= 30
-    },
-    category: AchievementCategory.MILESTONES,
+    id: 'prime_values',
+    name: 'Prime Numbers',
+    description: 'Find 5 consecutive cards with prime values (2, 3, 5, 7, 11, 13)',
+    type: 'pattern',
+    criteria: { patternId: 'prime_values' },
   },
   {
-    id: 'shuffle_addict',
-    name: 'Shuffle Addict',
-    description: 'Complete at least one shuffle every day for a month',
-    condition: (stats: UserStats) => stats.shuffle_streak >= 30,
-    category: AchievementCategory.MILESTONES,
+    id: 'sum_thirteen',
+    name: 'Lucky Sum',
+    description: 'Find 2 consecutive cards whose blackjack values sum to 13 (J,Q,K=10, A=1 or 11)',
+    type: 'pattern',
+    criteria: { patternId: 'sum_thirteen' },
   },
   {
-    id: 'completionist',
-    name: 'Completionist',
-    description: 'Unlock 25% of all available achievements',
-    condition: (stats: UserStats) => {
-      // This achievement is now managed by the achievements API
-      return false
-    },
-    category: AchievementCategory.MILESTONES,
+    id: 'color_gradient',
+    name: 'Color Gradient',
+    description: 'Find at least 8 consecutive cards of the same color',
+    type: 'pattern',
+    criteria: { patternId: 'color_gradient' },
   },
   {
-    id: 'achievement_hunter',
-    name: 'Achievement Hunter',
-    description: 'Unlock 50% of all available achievements',
-    condition: (stats: UserStats) => {
-      // This achievement is now managed by the achievements API
-      return false
-    },
-    category: AchievementCategory.MILESTONES,
+    id: 'perfect_balance',
+    name: 'Perfect Balance',
+    description:
+      'Find a section of 10 cards with exactly 5 red and 5 black, excluding face cards and aces',
+    type: 'pattern',
+    criteria: { patternId: 'perfect_balance' },
   },
   {
-    id: 'shuffle_legend',
-    name: 'Shuffle Legend',
-    description: 'Unlock 75% of all available achievements',
-    condition: (stats: UserStats) => {
-      // This achievement is now managed by the achievements API
-      return false
-    },
-    category: AchievementCategory.MILESTONES,
+    id: 'sequential_trio',
+    name: 'Sequential Trio',
+    description: 'Find 3 consecutive cards of the same suit in sequential order',
+    type: 'pattern',
+    criteria: { patternId: 'sequential_trio' },
+  },
+  {
+    id: 'even_odd_pattern',
+    name: 'Even Odd Pattern',
+    description: 'Find 6 consecutive cards alternating between even and odd values',
+    type: 'pattern',
+    criteria: { patternId: 'even_odd_pattern' },
   },
 
-  // Pop culture references
+  // Ultra rare achievements
   {
-    id: 'perfect_shuffle',
-    name: 'Perfect Shuffle',
-    description: 'Shuffle and get cards in perfect sequential order',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.POP_CULTURE,
+    id: 'perfect_order',
+    name: 'Perfect Order',
+    description: 'Find 13 cards of the same suit in perfect numerical order',
+    type: 'pattern',
+    criteria: { patternId: 'perfect_order' },
   },
   {
-    id: 'agent_007',
-    name: '007',
-    description: 'Get the 7 of spades in the 7th position',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.POP_CULTURE,
+    id: 'quad_sequence',
+    name: 'Quad Sequence',
+    description:
+      'Find all 4 cards of the same rank, followed immediately by all 4 cards of the next rank',
+    type: 'pattern',
+    criteria: { patternId: 'quad_sequence' },
   },
   {
-    id: 'blackjack',
-    name: 'Blackjack!',
-    description: 'Get exactly 21 as the sum of the first two cards (Ace + 10/J/Q/K)',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.POP_CULTURE,
-  },
-
-  // Quirky achievements
-  {
-    id: 'high_roller',
-    name: 'High Roller',
-    description: 'Get 5 face cards in a row in your shuffle',
-    condition: (stats: UserStats) => {
-      // Placeholder - actual implementation uses user_achievements table
-      return false
-    },
-    category: AchievementCategory.QUIRKY,
+    id: 'royal_procession',
+    name: 'Royal Procession',
+    description: 'Find all 12 face cards (J, Q, K) in consecutive positions',
+    type: 'pattern',
+    criteria: { patternId: 'royal_procession' },
   },
   {
-    id: 'deck_inspector',
-    name: 'Deck Inspector',
-    description: 'View the stats page 10 times',
-    condition: (stats: UserStats) => {
-      // The real implementation would track page views
-      return false
-    },
-    category: AchievementCategory.QUIRKY,
+    id: 'mirror_shuffle',
+    name: 'Mirror Shuffle',
+    description: 'First 26 cards mirror the last 26 cards in reverse order (by rank)',
+    type: 'pattern',
+    criteria: { patternId: 'mirror_shuffle' },
+  },
+  {
+    id: 'perfect_bridge',
+    name: 'Perfect Bridge',
+    description:
+      'Cards alternate perfectly between red and black for at least 26 consecutive positions',
+    type: 'pattern',
+    criteria: { patternId: 'perfect_bridge' },
+  },
+  {
+    id: 'symmetrical_suits',
+    name: 'Symmetrical Suits',
+    description: 'Find a sequence of at least 12 cards where the suit pattern is symmetrical',
+    type: 'pattern',
+    criteria: { patternId: 'symmetrical_suits' },
+  },
+  {
+    id: 'consecutive_flush_quads',
+    name: 'Consecutive Flush Quads',
+    description:
+      'All 4 hearts, followed by all 4 diamonds, followed by all 4 clubs, followed by all 4 spades of the same rank',
+    type: 'pattern',
+    criteria: { patternId: 'consecutive_flush_quads' },
+  },
+  {
+    id: 'consecutive_runs',
+    name: 'Consecutive Runs',
+    description:
+      'Find 3 consecutive straights (15 cards in sequence where each group of 5 forms a straight)',
+    type: 'pattern',
+    criteria: { patternId: 'consecutive_runs' },
+  },
+  {
+    id: 'suit_segregation',
+    name: 'Suit Segregation',
+    description: 'All 13 cards of one suit, followed by all 13 of another suit',
+    type: 'pattern',
+    criteria: { patternId: 'suit_segregation' },
   },
 ]
 
-// Function to check which achievements a user has earned
-// Note: This only handles count-based achievements
-// Pattern-based achievements are handled by the achievements API
-export function getUnlockedAchievements(stats: UserStats): Achievement[] {
-  return ACHIEVEMENTS.filter((achievement) => achievement.condition(stats))
-}
+// Find patterns in a deck
+export function findPatterns(deck: Deck): Pattern[] {
+  const patterns: Pattern[] = []
 
-// This function is now superseded by the achievements API
-// Kept for backward compatibility
-export async function updateUserAchievements(
-  supabaseAdmin: any,
-  userId: string,
-  stats: UserStats
-): Promise<{ achievements: Achievement[]; updated: boolean }> {
-  try {
-    // Get user's current achievements
-    const { data: currentEntry } = await supabaseAdmin
-      .from('leaderboard')
-      .select('achievements_count')
-      .eq('user_id', userId)
-      .single()
+  // Find poker hands in consecutive sections
+  const pokerHands = findConsecutivePokerHands(deck)
 
-    // Get count-based achievements (pattern-based are handled separately)
-    const countBasedAchievements = getUnlockedAchievements(stats)
+  // Check for three of a kind in consecutive sections - replacing this logic
+  // to only detect three cards of the same rank in directly consecutive positions
+  for (let i = 0; i <= deck.length - 3; i++) {
+    const section = deck.slice(i, i + 3)
 
-    // Get pattern-based achievements
-    const { data: patternAchievements, error: patternError } = await supabaseAdmin
-      .from('user_achievements')
-      .select('achievement_id')
-      .eq('user_id', userId)
-
-    if (patternError) {
-      console.error('Error fetching pattern achievements:', patternError)
-      // Continue even if there's an error - we can still update count-based achievements
+    // Check if all three cards have the same rank
+    if (section[0].rank === section[1].rank && section[1].rank === section[2].rank) {
+      patterns.push({
+        id: 'three_of_a_kind',
+        name: 'Three of a Kind',
+        description: `Three ${section[0].rank}s in consecutive positions ${i + 1} to ${i + 3}`,
+        indices: section.map((c) => c.index),
+        type: 'three',
+      })
     }
+  }
 
-    // Define interface for pattern achievement data
-    interface PatternAchievement {
-      achievement_id: string
+  // Check for four of a kind in consecutive positions
+  for (let i = 0; i <= deck.length - 4; i++) {
+    const section = deck.slice(i, i + 4)
+
+    // Check if all four cards have the same rank
+    if (
+      section[0].rank === section[1].rank &&
+      section[1].rank === section[2].rank &&
+      section[2].rank === section[3].rank
+    ) {
+      patterns.push({
+        id: 'four_of_a_kind',
+        name: 'Four of a Kind',
+        description: `Four ${section[0].rank}s in consecutive positions ${i + 1} to ${i + 4}`,
+        indices: section.map((c) => c.index),
+        type: 'four',
+      })
     }
+  }
 
-    // Extract achievement IDs from pattern achievements
-    const patternAchievementIds = (patternAchievements || []).map(
-      (item: PatternAchievement) => item.achievement_id
-    )
+  // Check for straights in consecutive sections
+  if (pokerHands.straight.length > 0) {
+    for (const straight of pokerHands.straight) {
+      patterns.push({
+        id: 'straight',
+        name: 'Straight',
+        description: `Straight from ${straight[0].rank} to ${
+          straight[4].rank
+        } at positions ${straight.map((c) => c.index + 1).join(', ')}`,
+        indices: straight.map((c) => c.index),
+        type: 'straight',
+      })
+    }
+  }
 
-    // Combine both types of achievements
-    const countBasedAchievementIds = countBasedAchievements.map((achievement) => achievement.id)
-    const uniqueAchievementSet = new Set([...countBasedAchievementIds, ...patternAchievementIds])
-    const allAchievementIds = Array.from(uniqueAchievementSet)
+  // Check for flushes in consecutive sections
+  if (pokerHands.flush.length > 0) {
+    for (const flush of pokerHands.flush) {
+      patterns.push({
+        id: 'flush',
+        name: 'Flush',
+        description: `Flush of ${flush[0].suit} at positions ${flush
+          .map((c) => c.index + 1)
+          .join(', ')}`,
+        indices: flush.map((c) => c.index),
+        type: 'flush',
+      })
+    }
+  }
 
-    // Map IDs back to full achievement objects
-    const allAchievements = allAchievementIds
-      .map((id) => ACHIEVEMENTS.find((a) => a.id === id))
-      .filter(Boolean) as Achievement[] // Remove any undefined entries
+  // Check for full houses in consecutive sections
+  if (pokerHands.fullHouse.length > 0) {
+    for (const fullHouse of pokerHands.fullHouse) {
+      patterns.push({
+        id: 'full_house',
+        name: 'Full House',
+        description: `Full House at positions ${fullHouse.map((c) => c.index + 1).join(', ')}`,
+        indices: fullHouse.map((c) => c.index),
+        type: 'full_house',
+      })
+    }
+  }
 
-    // If the number of achievements has changed, update the database
-    if (allAchievements.length !== (currentEntry?.achievements_count || 0)) {
-      const { error } = await supabaseAdmin
-        .from('leaderboard')
-        .update({ achievements_count: allAchievements.length })
-        .eq('user_id', userId)
+  // Check for straight flushes in consecutive sections
+  if (pokerHands.straightFlush.length > 0) {
+    for (const straightFlush of pokerHands.straightFlush) {
+      patterns.push({
+        id: 'straight_flush',
+        name: 'Straight Flush',
+        description: `Straight Flush at positions ${straightFlush
+          .map((c) => c.index + 1)
+          .join(', ')}`,
+        indices: straightFlush.map((c) => c.index),
+        type: 'straight_flush',
+      })
+    }
+  }
 
-      if (error) {
-        console.error('Error updating achievements count:', error)
-        return { achievements: allAchievements, updated: false }
+  // Check for two pair in 4 consecutive cards (e.g., 5-5-9-9)
+  for (let i = 0; i <= deck.length - 4; i++) {
+    const section = deck.slice(i, i + 4)
+    const ranks = section.map((card) => card.rank)
+
+    // Need exactly 2 distinct ranks
+    const uniqueRanks = new Set(ranks)
+    if (uniqueRanks.size === 2) {
+      // And each rank must appear exactly twice
+      const rankCounts: Record<string, number> = {}
+      ranks.forEach((rank) => {
+        rankCounts[rank] = (rankCounts[rank] || 0) + 1
+      })
+
+      const allRanksAppearTwice = Object.values(rankCounts).every((count) => count === 2)
+
+      if (allRanksAppearTwice) {
+        patterns.push({
+          id: 'two_pair',
+          name: 'Two Pair',
+          description: `Two pairs in consecutive positions ${i + 1} to ${i + 4}`,
+          indices: section.map((c) => c.index),
+          type: 'two_pair',
+        })
+      }
+    }
+  }
+
+  // Check for four aces in a row
+  const aces = deck.filter((card) => card.rank === 'A')
+  if (aces.length === 4) {
+    // Check if they're consecutive in the shuffle
+    const acesIndices = aces.map((a) => a.index).sort((a, b) => a - b)
+    if (acesIndices[3] - acesIndices[0] === 3) {
+      patterns.push({
+        id: 'four_aces',
+        name: 'Four Aces in a Row',
+        description: 'All four aces in consecutive positions',
+        indices: acesIndices,
+        type: 'special',
+      })
+    }
+  }
+
+  // Check for royal family (J, Q, K of any suit in a row)
+  const faceCards = deck.filter((card) => ['J', 'Q', 'K'].includes(card.rank))
+  for (let i = 0; i <= deck.length - 4; i++) {
+    const section = deck.slice(i, i + 4)
+    if (section.every((card) => ['J', 'Q', 'K'].includes(card.rank))) {
+      patterns.push({
+        id: 'royal_family',
+        name: 'Royal Family',
+        description: '4 consecutive face cards in a row',
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check if card at position 13 is an Ace
+  if (deck[12] && deck[12].rank === 'A') {
+    patterns.push({
+      id: 'lucky_thirteen',
+      name: 'Lucky Thirteen',
+      description: 'Card #13 is an Ace',
+      indices: [12],
+      type: 'special',
+    })
+  }
+
+  // Check for 6 or more cards of the same suit in a row
+  for (let i = 0; i <= deck.length - 6; i++) {
+    const section = deck.slice(i, i + 6)
+    if (areCardsFlush(section)) {
+      patterns.push({
+        id: 'perfect_suit',
+        name: 'Perfect Suit',
+        description: `6 ${section[0].suit} in a row from positions ${i + 1} to ${i + 6}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for 7 cards in ascending order
+  for (let i = 0; i <= deck.length - 7; i++) {
+    const section = deck.slice(i, i + 7)
+    const sortedValues = [...section].sort((a, b) => a.value - b.value)
+    if (
+      section.every((card, index) => card.value === sortedValues[index].value) &&
+      section[6].value - section[0].value === 6
+    ) {
+      patterns.push({
+        id: 'stairway_to_heaven',
+        name: 'Stairway to Heaven',
+        description: `7 cards in ascending order from positions ${i + 1} to ${i + 7}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for 7 cards in descending order
+  for (let i = 0; i <= deck.length - 7; i++) {
+    const section = deck.slice(i, i + 7)
+    const sortedValues = [...section].sort((a, b) => b.value - a.value)
+    if (
+      section.every((card, index) => card.value === sortedValues[index].value) &&
+      section[0].value - section[6].value === 6
+    ) {
+      patterns.push({
+        id: 'highway_to_hell',
+        name: 'Highway to Hell',
+        description: `7 cards in descending order from positions ${i + 1} to ${i + 7}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for cards at prime positions (2, 3, 5, 7, 11, 13) having the same color
+  const primePositions = [1, 2, 4, 6, 10, 12] // 0-indexed positions for cards at positions 2, 3, 5, 7, 11, 13
+  if (
+    primePositions.every((pos) => deck[pos]) &&
+    primePositions.every((pos) => deck[pos].color === deck[primePositions[0]].color)
+  ) {
+    patterns.push({
+      id: 'prime_position',
+      name: 'Prime Position',
+      description: `Cards at positions 2, 3, 5, 7, 11, and 13 are all ${
+        deck[primePositions[0]].color
+      }`,
+      indices: primePositions,
+      type: 'special',
+    })
+  }
+
+  // Check for palindrome in 6 consecutive cards
+  for (let i = 0; i <= deck.length - 6; i++) {
+    const section = deck.slice(i, i + 6)
+    const ranks = section.map((card) => card.rank)
+
+    // Check if it's a palindrome
+    if (ranks[0] === ranks[5] && ranks[1] === ranks[4] && ranks[2] === ranks[3]) {
+      patterns.push({
+        id: 'palindrome',
+        name: 'Palindrome',
+        description: `Palindrome pattern at positions ${i + 1} to ${i + 6}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check if the four "corners" of the deck have the same suit
+  if (
+    deck[0] &&
+    deck[12] &&
+    deck[39] &&
+    deck[51] &&
+    deck[0].suit === deck[12].suit &&
+    deck[12].suit === deck[39].suit &&
+    deck[39].suit === deck[51].suit
+  ) {
+    patterns.push({
+      id: 'four_corners',
+      name: 'Four Corners',
+      description: `All four corners (1st, 13th, 40th, and 52nd cards) are ${deck[0].suit}`,
+      indices: [0, 12, 39, 51],
+      type: 'special',
+    })
+  }
+
+  // Check for unlucky shuffle (position 13 is K of spades)
+  if (deck[12] && deck[12].rank === 'K' && deck[12].suit === 'spades') {
+    patterns.push({
+      id: 'unlucky_shuffle',
+      name: 'Unlucky Shuffle',
+      description: 'The 13th card is the King of Spades',
+      indices: [12],
+      type: 'special',
+    })
+  }
+
+  // Check for alternating colors
+  if (doCardsAlternateColors(deck)) {
+    patterns.push({
+      id: 'alternating_colors',
+      name: 'Alternating Colors',
+      description: 'The entire deck alternates between red and black cards',
+      type: 'special',
+    })
+  }
+
+  // Check for all red/black in first 13 cards
+  const first13 = deck.slice(0, 13)
+  const allRed = first13.every((card) => card.color === 'red')
+  const allBlack = first13.every((card) => card.color === 'black')
+
+  if (allRed) {
+    patterns.push({
+      id: 'all_red',
+      name: 'Seeing Red',
+      description: 'First 13 cards are all red',
+      indices: first13.map((c) => c.index),
+      type: 'special',
+    })
+  }
+
+  if (allBlack) {
+    patterns.push({
+      id: 'all_black',
+      name: 'Back in Black',
+      description: 'First 13 cards are all black',
+      indices: first13.map((c) => c.index),
+      type: 'special',
+    })
+  }
+
+  // Check for Rainbow (4 consecutive cards with all 4 suits in alternating colors)
+  for (let i = 0; i <= deck.length - 4; i++) {
+    const section = deck.slice(i, i + 4)
+    const suits = new Set(section.map((card) => card.suit))
+
+    // Need all 4 suits
+    if (suits.size === 4) {
+      // Also need alternating colors
+      let hasAlternatingColors = true
+      for (let j = 1; j < section.length; j++) {
+        if (section[j].color === section[j - 1].color) {
+          hasAlternatingColors = false
+          break
+        }
       }
 
-      return { achievements: allAchievements, updated: true }
+      if (hasAlternatingColors) {
+        patterns.push({
+          id: 'rainbow',
+          name: 'Rainbow',
+          description: `All 4 suits with alternating colors at positions ${i + 1} to ${i + 4}`,
+          indices: section.map((c) => c.index),
+          type: 'special',
+        })
+        break
+      }
+    }
+  }
+
+  // Check for Double Rainbow (4 suits in order followed by the same 4 suits in the same order)
+  for (let i = 0; i <= deck.length - 8; i++) {
+    const firstSection = deck.slice(i, i + 4)
+    const secondSection = deck.slice(i + 4, i + 8)
+
+    // First check if both sections contain all 4 suits
+    const firstSuits = new Set(firstSection.map((card) => card.suit))
+    const secondSuits = new Set(secondSection.map((card) => card.suit))
+
+    if (firstSuits.size === 4 && secondSuits.size === 4) {
+      // Check if the suits appear in the same order
+      const sameOrder = firstSection.every((card, index) => card.suit === secondSection[index].suit)
+
+      if (sameOrder) {
+        patterns.push({
+          id: 'double_rainbow',
+          name: 'Double Rainbow',
+          description: `Four suits in the same order repeated at positions ${i + 1} to ${i + 8}`,
+          indices: [...firstSection, ...secondSection].map((c) => c.index),
+          type: 'special',
+        })
+        break
+      }
+    }
+  }
+
+  // Check for Fibonacci-like sequence (each value is approximately the sum of the two preceding)
+  for (let i = 0; i <= deck.length - 5; i++) {
+    const section = deck.slice(i, i + 5)
+    // Sort by position, not by value
+    const sortedByPosition = [...section].sort((a, b) => a.index - b.index)
+    const values = sortedByPosition.map((card) => card.value)
+
+    // Check if each value is approximately the sum of the two preceding values
+    // Allow for "wrap around" at high values (e.g., K+Q can be seen as 13+12=25, which wraps to 12)
+    let isFibonacciLike = true
+    for (let j = 2; j < values.length; j++) {
+      const sum = (values[j - 1] + values[j - 2]) % 13
+      const target = values[j] === 13 ? 13 : values[j] % 13
+      if (sum !== target && sum !== target + 1 && sum !== target - 1) {
+        isFibonacciLike = false
+        break
+      }
     }
 
-    return { achievements: allAchievements, updated: false }
-  } catch (error) {
-    console.error('Error updating achievements:', error)
-    return { achievements: [], updated: false }
+    if (isFibonacciLike) {
+      patterns.push({
+        id: 'fibonacci_sequence',
+        name: 'Fibonacci Sequence',
+        description: `Fibonacci-like sequence at positions ${i + 1} to ${i + 5}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
   }
+
+  // Check for Prime Values (cards with values 2, 3, 5, 7, 11, 13/K)
+  const primeValues = [2, 3, 5, 7, 11, 13]
+  for (let i = 0; i <= deck.length - 5; i++) {
+    const section = deck.slice(i, i + 5)
+    if (section.every((card) => primeValues.includes(card.value))) {
+      patterns.push({
+        id: 'prime_values',
+        name: 'Prime Numbers',
+        description: `5 cards with prime values at positions ${i + 1} to ${i + 5}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Lucky Sum with blackjack values (2 consecutive cards summing to 13)
+  for (let i = 0; i < deck.length - 1; i++) {
+    const card1 = deck[i]
+    const card2 = deck[i + 1]
+
+    // Get blackjack values
+    const getBlackjackValue = (card: Card) => {
+      if (['J', 'Q', 'K'].includes(card.rank)) return 10
+      if (card.rank === 'A') {
+        // For Ace, try both 1 and 11
+        return card2.rank === 'A' ? 1 : 11 // If both cards are Aces, use 1+1; otherwise 11+value
+      }
+      return card.value
+    }
+
+    const value1 = getBlackjackValue(card1)
+    const value2 = getBlackjackValue(card2)
+
+    if (value1 + value2 === 13) {
+      patterns.push({
+        id: 'sum_thirteen',
+        name: 'Lucky Sum',
+        description: `Cards at positions ${i + 1} and ${i + 2} sum to 13 using blackjack values`,
+        indices: [card1.index, card2.index],
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Color Gradient (8 or more consecutive cards of the same color)
+  for (let i = 0; i <= deck.length - 8; i++) {
+    const section = deck.slice(i, i + 8)
+    if (section.every((card) => card.color === section[0].color)) {
+      patterns.push({
+        id: 'color_gradient',
+        name: 'Color Gradient',
+        description: `8 ${section[0].color} cards in a row from positions ${i + 1} to ${i + 8}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Perfect Balance (10 cards with exactly 5 red and 5 black, excluding face cards and aces)
+  for (let i = 0; i <= deck.length - 10; i++) {
+    const section = deck.slice(i, i + 10)
+
+    // Filter out face cards and aces
+    const filteredSection = section.filter((card) => !['J', 'Q', 'K', 'A'].includes(card.rank))
+
+    // Skip if we don't have enough cards after filtering
+    if (filteredSection.length < 10) continue
+
+    // Take only the first 10 cards after filtering
+    const consideredCards = filteredSection.slice(0, 10)
+
+    const redCount = consideredCards.filter((card) => card.color === 'red').length
+
+    if (redCount === 5) {
+      patterns.push({
+        id: 'perfect_balance',
+        name: 'Perfect Balance',
+        description: `Perfect balance of red and black (excluding J,Q,K,A) starting at position ${
+          i + 1
+        }`,
+        indices: consideredCards.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Sequential Trio (3 consecutive cards of the same suit in sequential order)
+  for (let i = 0; i <= deck.length - 3; i++) {
+    const section = deck.slice(i, i + 3)
+
+    if (
+      areCardsFlush(section) &&
+      section[1].value === section[0].value + 1 &&
+      section[2].value === section[1].value + 1
+    ) {
+      patterns.push({
+        id: 'sequential_trio',
+        name: 'Sequential Trio',
+        description: `3 sequential ${section[0].suit} cards at positions ${i + 1} to ${i + 3}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Even Odd Pattern (6 consecutive cards alternating between even and odd values)
+  for (let i = 0; i <= deck.length - 6; i++) {
+    const section = deck.slice(i, i + 6)
+    let isValidPattern = true
+
+    for (let j = 1; j < section.length; j++) {
+      const isCurrentEven = section[j].value % 2 === 0
+      const isPreviousEven = section[j - 1].value % 2 === 0
+
+      if (isCurrentEven === isPreviousEven) {
+        isValidPattern = false
+        break
+      }
+    }
+
+    if (isValidPattern) {
+      patterns.push({
+        id: 'even_odd_pattern',
+        name: 'Even Odd Pattern',
+        description: `Alternating even/odd values at positions ${i + 1} to ${i + 6}`,
+        indices: section.map((c) => c.index),
+        type: 'special',
+      })
+      break
+    }
+  }
+
+  // Check for Perfect Order (13 cards of the same suit in perfect numerical order)
+  for (let i = 0; i <= deck.length - 13; i++) {
+    const section = deck.slice(i, i + 13)
+
+    if (areCardsFlush(section)) {
+      // Check if the cards are in perfect numerical order
+      const sortedValues = [...section].sort((a, b) => a.value - b.value)
+      const isInOrder = section.every((card, idx) => card.value === sortedValues[idx].value)
+
+      if (isInOrder && section[12].value - section[0].value === 12) {
+        patterns.push({
+          id: 'perfect_order',
+          name: 'Perfect Order',
+          description: `All 13 ${section[0].suit} cards in perfect order from positions ${
+            i + 1
+          } to ${i + 13}`,
+          indices: section.map((c) => c.index),
+          type: 'legendary',
+        })
+        break
+      }
+    }
+  }
+
+  // Check for Quad Sequence (all 4 cards of one rank followed by all 4 of the next rank)
+  for (let i = 0; i <= deck.length - 8; i++) {
+    const section = deck.slice(i, i + 8)
+    const firstFour = section.slice(0, 4)
+    const secondFour = section.slice(4, 8)
+
+    const firstRank = firstFour[0].rank
+    const secondRank = secondFour[0].rank
+
+    // Check if all cards in each group have the same rank
+    const firstQuad = firstFour.every((card) => card.rank === firstRank)
+    const secondQuad = secondFour.every((card) => card.rank === secondRank)
+
+    // Check if the second rank is the next in sequence
+    const isNextRank = ranks.indexOf(secondRank) === (ranks.indexOf(firstRank) + 1) % 13
+
+    if (firstQuad && secondQuad && isNextRank) {
+      patterns.push({
+        id: 'quad_sequence',
+        name: 'Quad Sequence',
+        description: `All four ${firstRank}s followed by all four ${secondRank}s from positions ${
+          i + 1
+        } to ${i + 8}`,
+        indices: section.map((c) => c.index),
+        type: 'legendary',
+      })
+      break
+    }
+  }
+
+  // Check for Royal Procession (all 12 face cards in consecutive positions)
+  for (let i = 0; i <= deck.length - 12; i++) {
+    const section = deck.slice(i, i + 12)
+
+    // Check if all cards are face cards (J, Q, K)
+    if (section.every((card) => ['J', 'Q', 'K'].includes(card.rank))) {
+      const jackCount = section.filter((card) => card.rank === 'J').length
+      const queenCount = section.filter((card) => card.rank === 'Q').length
+      const kingCount = section.filter((card) => card.rank === 'K').length
+
+      // Verify we have all 4 of each face card
+      if (jackCount === 4 && queenCount === 4 && kingCount === 4) {
+        patterns.push({
+          id: 'royal_procession',
+          name: 'Royal Procession',
+          description: `All 12 face cards in consecutive positions from ${i + 1} to ${i + 12}`,
+          indices: section.map((c) => c.index),
+          type: 'legendary',
+        })
+        break
+      }
+    }
+  }
+
+  // Check for Mirror Shuffle (first 26 cards mirror the last 26 cards in rank)
+  if (deck.length === 52) {
+    const firstHalf = deck.slice(0, 26)
+    const secondHalf = deck.slice(26, 52).reverse()
+
+    let isMirrored = true
+    for (let i = 0; i < 26; i++) {
+      if (firstHalf[i].rank !== secondHalf[i].rank) {
+        isMirrored = false
+        break
+      }
+    }
+
+    if (isMirrored) {
+      patterns.push({
+        id: 'mirror_shuffle',
+        name: 'Mirror Shuffle',
+        description: 'The first 26 cards mirror the last 26 cards in reverse order by rank',
+        indices: deck.map((c) => c.index),
+        type: 'legendary',
+      })
+    }
+  }
+
+  // Check for Perfect Bridge (at least 26 consecutive cards alternating red and black)
+  for (let i = 0; i <= deck.length - 26; i++) {
+    const section = deck.slice(i, i + 26)
+
+    let isPerfectBridge = true
+    for (let j = 1; j < 26; j++) {
+      if (section[j].color === section[j - 1].color) {
+        isPerfectBridge = false
+        break
+      }
+    }
+
+    if (isPerfectBridge) {
+      patterns.push({
+        id: 'perfect_bridge',
+        name: 'Perfect Bridge',
+        description: `Perfect alternating colors for 26 cards from positions ${i + 1} to ${i + 26}`,
+        indices: section.map((c) => c.index),
+        type: 'legendary',
+      })
+      break
+    }
+  }
+
+  // Check for Symmetrical Suits (at least 12 cards with symmetrical suit pattern)
+  for (let i = 0; i <= deck.length - 12; i++) {
+    const section = deck.slice(i, i + 12)
+    const suits = section.map((card) => card.suit)
+
+    let isSymmetrical = true
+    for (let j = 0; j < 6; j++) {
+      if (suits[j] !== suits[11 - j]) {
+        isSymmetrical = false
+        break
+      }
+    }
+
+    if (isSymmetrical) {
+      patterns.push({
+        id: 'symmetrical_suits',
+        name: 'Symmetrical Suits',
+        description: `Symmetrical suit pattern for 12 cards from positions ${i + 1} to ${i + 12}`,
+        indices: section.map((c) => c.index),
+        type: 'legendary',
+      })
+      break
+    }
+  }
+
+  // Check for Consecutive Flush Quads (4 hearts, 4 diamonds, 4 clubs, 4 spades of same rank)
+  for (let i = 0; i <= deck.length - 16; i++) {
+    const section = deck.slice(i, i + 16)
+
+    // Group the cards by suit
+    const suitGroups: Record<Suit, Card[]> = {
+      hearts: [],
+      diamonds: [],
+      clubs: [],
+      spades: [],
+    }
+
+    section.forEach((card) => {
+      suitGroups[card.suit].push(card)
+    })
+
+    // Check if each suit has exactly 4 cards
+    if (
+      suitGroups.hearts.length === 4 &&
+      suitGroups.diamonds.length === 4 &&
+      suitGroups.clubs.length === 4 &&
+      suitGroups.spades.length === 4
+    ) {
+      // Check if all cards have the same rank
+      const rank = section[0].rank
+      if (section.every((card) => card.rank === rank)) {
+        // Check if they appear in the correct order: hearts, diamonds, clubs, spades
+        const heartsIndices = suitGroups.hearts.map((c) => c.index)
+        const diamondsIndices = suitGroups.diamonds.map((c) => c.index)
+        const clubsIndices = suitGroups.clubs.map((c) => c.index)
+        const spadesIndices = suitGroups.spades.map((c) => c.index)
+
+        // Check if the max index of each suit is less than the min index of the next suit
+        const maxHearts = Math.max(...heartsIndices)
+        const minDiamonds = Math.min(...diamondsIndices)
+        const maxDiamonds = Math.max(...diamondsIndices)
+        const minClubs = Math.min(...clubsIndices)
+        const maxClubs = Math.max(...clubsIndices)
+        const minSpades = Math.min(...spadesIndices)
+
+        if (maxHearts < minDiamonds && maxDiamonds < minClubs && maxClubs < minSpades) {
+          patterns.push({
+            id: 'consecutive_flush_quads',
+            name: 'Consecutive Flush Quads',
+            description: `All 4 ${rank} cards of each suit in sequence from positions ${i + 1} to ${
+              i + 16
+            }`,
+            indices: section.map((c) => c.index),
+            type: 'legendary',
+          })
+          break
+        }
+      }
+    }
+  }
+
+  // Check for Consecutive Runs (3 consecutive straights - 15 cards)
+  for (let i = 0; i <= deck.length - 15; i++) {
+    const section = deck.slice(i, i + 15)
+
+    // Check each 5-card segment for a straight
+    const firstStraight = areCardsInSequence(section.slice(0, 5))
+    const secondStraight = areCardsInSequence(section.slice(5, 10))
+    const thirdStraight = areCardsInSequence(section.slice(10, 15))
+
+    if (firstStraight && secondStraight && thirdStraight) {
+      patterns.push({
+        id: 'consecutive_runs',
+        name: 'Consecutive Runs',
+        description: `Three consecutive straights from positions ${i + 1} to ${i + 15}`,
+        indices: section.map((c) => c.index),
+        type: 'legendary',
+      })
+      break
+    }
+  }
+
+  // Check for Suit Segregation (all 13 cards of one suit followed by all 13 of another)
+  for (let i = 0; i <= deck.length - 26; i++) {
+    const section = deck.slice(i, i + 26)
+    const firstHalf = section.slice(0, 13)
+    const secondHalf = section.slice(13, 26)
+
+    // Check if all cards in each half are of the same suit
+    const firstSuit = firstHalf[0].suit
+    const secondSuit = secondHalf[0].suit
+
+    if (
+      firstSuit !== secondSuit &&
+      firstHalf.every((card) => card.suit === firstSuit) &&
+      secondHalf.every((card) => card.suit === secondSuit)
+    ) {
+      // Check if we have all 13 ranks in each suit
+      const firstRanks = new Set(firstHalf.map((card) => card.rank))
+      const secondRanks = new Set(secondHalf.map((card) => card.rank))
+
+      if (firstRanks.size === 13 && secondRanks.size === 13) {
+        patterns.push({
+          id: 'suit_segregation',
+          name: 'Suit Segregation',
+          description: `All 13 ${firstSuit} followed by all 13 ${secondSuit} from positions ${
+            i + 1
+          } to ${i + 26}`,
+          indices: section.map((c) => c.index),
+          type: 'legendary',
+        })
+        break
+      }
+    }
+  }
+
+  return patterns
+}
+
+// Function to get date as YYYY-MM-DD
+function getDateString(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+// Store dates when daily achievements were earned
+// Format: { achievement_id: Set<YYYY-MM-DD> }
+const dailyAchievementDates: Record<string, Set<string>> = {
+  midnight_shuffle: new Set<string>(),
+}
+
+// Check which achievements a shuffle qualifies for
+export function checkAchievements(deck: Deck, userShuffleCount: number): Achievement[] {
+  const earnedAchievements: Achievement[] = []
+  const patterns = findPatterns(deck)
+  const now = new Date()
+  const today = getDateString(now)
+
+  // Track which achievement types have been earned to prevent duplicates
+  const earnedPatternTypes = new Set<string>()
+
+  // Check pattern-based achievements
+  for (const achievement of achievements) {
+    if (achievement.type === 'pattern') {
+      const patternId = achievement.criteria.patternId
+
+      // Skip if no patternId is specified
+      if (!patternId) continue
+
+      // If we've already earned this type of pattern achievement, skip it
+      if (earnedPatternTypes.has(patternId)) continue
+
+      if (patterns.some((p) => p.id === patternId)) {
+        earnedAchievements.push(achievement)
+        // Mark this pattern type as earned
+        earnedPatternTypes.add(patternId)
+      }
+    }
+
+    // Check count-based achievements
+    if (achievement.type === 'count') {
+      const requiredCount = achievement.criteria.shuffleCount ?? 0
+      if (userShuffleCount === requiredCount) {
+        earnedAchievements.push(achievement)
+      }
+    }
+
+    // Check time-based achievements
+    if (achievement.type === 'time') {
+      // Check time of day
+      if (achievement.criteria.timeOfDay) {
+        const { start, end } = achievement.criteria.timeOfDay
+        const currentHour = now.getHours()
+        const currentMinute = now.getMinutes()
+        const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute
+          .toString()
+          .padStart(2, '0')}`
+
+        if (currentTime >= start && currentTime <= end) {
+          // Special case for Night Owl achievement (midnight_shuffle)
+          // Only earn it once per day
+          if (achievement.id === 'midnight_shuffle') {
+            // Check if this achievement was already earned today
+            if (!dailyAchievementDates.midnight_shuffle.has(today)) {
+              // Not earned today, so add it
+              earnedAchievements.push(achievement)
+              // Record that we earned it today
+              dailyAchievementDates.midnight_shuffle.add(today)
+            }
+          } else {
+            // For other time-based achievements, behave as before
+            earnedAchievements.push(achievement)
+          }
+        }
+      }
+
+      // Check day of week
+      if (achievement.criteria.dayOfWeek) {
+        const currentDay = now.getDay()
+        if (achievement.criteria.dayOfWeek.includes(currentDay)) {
+          earnedAchievements.push(achievement)
+        }
+      }
+    }
+  }
+
+  return earnedAchievements
 }
