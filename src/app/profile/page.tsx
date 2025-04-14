@@ -18,6 +18,7 @@ import { MAX_USERNAME_LENGTH } from '@/lib/constants'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useTheme } from 'next-themes'
 import { ToastButton } from '@/components/ui/toast-button'
+import { trackEvent } from '@/lib/analytics'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -438,6 +439,11 @@ export default function ProfilePage() {
         description: 'your username has been successfully updated.',
         variant: 'success',
       })
+
+      // Add tracking
+      trackEvent('profile_updated', {
+        username: newUsername, // Or other profile details you want to track
+      })
     } catch (error: any) {
       console.error('Error updating username:', error)
       toast({
@@ -528,6 +534,11 @@ export default function ProfilePage() {
       setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: false }))
     }
   }
+
+  // Add a useEffect to track page view
+  useEffect(() => {
+    trackEvent('profile_page_viewed')
+  }, [])
 
   if (isLoading) {
     return (
@@ -883,6 +894,21 @@ export default function ProfilePage() {
             {userAchievements.length > 0 && (
               <div className='text-center mt-8'>
                 <Button variant='outline' onClick={() => router.push('/achievements')}>
+                  view all achievements
+                </Button>
+              </div>
+            )}
+
+            {/* Add tracking */}
+            {userAchievements.length > 0 && (
+              <div className='text-center mt-8'>
+                <Button
+                  variant='outline'
+                  onClick={() => {
+                    router.push('/achievements')
+                    trackEvent('profile_achievements_viewed')
+                  }}
+                >
                   view all achievements
                 </Button>
               </div>

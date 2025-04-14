@@ -9,27 +9,112 @@ import { formatDate } from '@/lib/utils'
 import { BackButton } from '@/components/navigation-buttons'
 import { PostgrestError } from '@supabase/supabase-js'
 import { CopyLinkButton } from '@/components/copy-link-button'
+import { Metadata, ResolvingMetadata } from 'next'
+import { SharedShuffleTracker } from '@/components/shared-shuffle-tracker'
 
 export const revalidate = 0 // No caching for shared shuffle pages
 
-// Define the correct type for Next.js page props
 interface PageProps {
   params: Promise<{ code: string }>
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function SharedShufflePage({ params }: PageProps) {
-  let code: string
+// Generate dynamic metadata for the shuffle page
+export async function generateMetadata(
+  { params }: PageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  // Get the code from params
+  const resolvedParams = await params
+  const code = resolvedParams.code
 
-  try {
-    const paramsData = await params
-    code = paramsData.code
+  // Get the shuffle data
+  const supabase = await createClient()
+  let shuffle = null
 
-    if (!code) {
-      redirect('/')
+  // Try to get shuffle by ID
+  let { data: shuffleData } = await supabase.from('shuffles').select('*').eq('id', code).single()
+
+  if (shuffleData) {
+    shuffle = shuffleData
+  } else {
+    // Try by share_code
+    const { data: shuffleByShareCode } = await supabase
+      .from('shuffles')
+      .select('*')
+      .eq('share_code', code)
+      .single()
+
+    shuffle = shuffleByShareCode
+  }
+
+  // If no shuffle found, use default metadata
+  if (!shuffle) {
+    return {
+      title: 'shared shuffle | unique shuffle',
+      description: 'view a shared card shuffle',
     }
-  } catch (err) {
-    console.error('Error extracting code parameter:', err)
+  }
+
+  // Get username if available
+  let username = 'anon'
+  if (shuffle?.user_id) {
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('username')
+      .eq('id', shuffle.user_id)
+      .single()
+
+    if (userData?.username) {
+      username = userData.username
+    }
+  }
+
+  // Find patterns in the shuffle
+  const patterns = findPatterns(shuffle.cards)
+  const patternNames = patterns.map((p) => p.name).join(', ')
+
+  // Create dynamic description based on patterns and username
+  const description =
+    patterns.length > 0
+      ? `check out this card shuffle by ${username} featuring ${patternNames}!`
+      : `check out this unique card shuffle by ${username}!`
+
+  // Absolute URL for OG image
+  const ogImageUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/og?code=${code}`
+
+  return {
+    title: `${username}'s shuffle | unique shuffle`,
+    description,
+    openGraph: {
+      title: `${username}'s card shuffle | unique shuffle`,
+      description,
+      type: 'website',
+      url: `${process.env.NEXT_PUBLIC_APP_URL}/shared/${code}`,
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `card shuffle by ${username}`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${username}'s card shuffle | unique shuffle`,
+      description,
+      images: [ogImageUrl],
+    },
+  }
+}
+
+export default async function SharedShufflePage({ params }: PageProps) {
+  // Extract params, handling Promise case
+  const resolvedParams = await params
+  const code = resolvedParams.code
+
+  if (!code) {
     redirect('/')
   }
 
@@ -255,6 +340,15 @@ export default async function SharedShufflePage({ params }: PageProps) {
         <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Shared Shuffle</h1>
         <p className='mt-4 text-muted-foreground'>View a shared card shuffle</p>
       </div>
+
+      {/* Track the shuffle view with PostHog */}
+      <SharedShuffleTracker
+        shuffleId={shuffle.id}
+        shareCode={shuffle.share_code || ''}
+        viewCount={viewCount}
+        username={username}
+        patternCount={patterns.length}
+      />
 
       <Card>
         <CardHeader>

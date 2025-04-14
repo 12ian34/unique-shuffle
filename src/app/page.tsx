@@ -16,6 +16,8 @@ import { refreshUserStats } from '@/components/user-stats-provider'
 import { BookmarkIcon, BookmarkFilledIcon } from '@radix-ui/react-icons'
 import { generateRandomString } from '@/lib/utils'
 import { ToastButton } from '@/components/ui/toast-button'
+import { trackEvent } from '@/lib/analytics'
+import { usePostHog } from 'posthog-js/react'
 
 export default function HomePage() {
   const router = useRouter()
@@ -27,6 +29,7 @@ export default function HomePage() {
   const [animatedDeck, setAnimatedDeck] = useState<Deck | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const { toast, dismiss } = useToast()
+  const posthog = usePostHog()
   // Add a ref to track if a save operation is in progress
   const isSaveInProgressRef = useRef(false)
   // Add a ref to track if this shuffle has been processed
@@ -93,6 +96,9 @@ export default function HomePage() {
     hasProcessedCurrentShuffleRef.current = false
     isSaveInProgressRef.current = false
 
+    // Track shuffle start
+    trackEvent('shuffle_started')
+
     try {
       // Create and shuffle a new deck
       const deck = createDeck()
@@ -107,6 +113,11 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error shuffling deck:', error)
       setIsShuffling(false)
+
+      // Track shuffle error
+      trackEvent('shuffle_error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
   }
 
@@ -136,6 +147,12 @@ export default function HomePage() {
       // Find patterns in the shuffled deck
       const foundPatterns = findPatterns(animatedDeck)
       setPatterns(foundPatterns)
+
+      // Track patterns found
+      trackEvent('patterns_found', {
+        patternCount: foundPatterns.length,
+        patternTypes: foundPatterns.map((p) => p.type),
+      })
 
       // Get the current user and auth session
       const { data: authData } = await supabase.auth.getSession()
@@ -226,6 +243,15 @@ export default function HomePage() {
 
               setNewAchievements(newlyEarned)
               setPreviouslyUnlockedAchievements(previouslyUnlocked)
+
+              // Track achievements earned
+              if (newlyEarned.length > 0) {
+                trackEvent('achievements_earned', {
+                  achievementCount: newlyEarned.length,
+                  achievementIds: newlyEarned.map((a) => a.id),
+                  achievementTitles: newlyEarned.map((a) => a.name),
+                })
+              }
             }
 
             // If we received userStats in the response, update the UI immediately
@@ -266,6 +292,13 @@ export default function HomePage() {
       setIsShuffling(false)
       setShowAnimation(false)
     }
+
+    // Track successful shuffle completion
+    trackEvent('shuffle_completed', {
+      patternCount: patterns.length,
+      shuffleId: currentShuffleId,
+      deckSize: animatedDeck?.length || 52,
+    })
   }
 
   // Helper function to save shuffle directly to DB
@@ -349,6 +382,11 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error in direct DB access:', error)
     }
+
+    // Track shuffle saved
+    trackEvent('shuffle_saved', {
+      shuffleId: currentShuffleId,
+    })
   }
 
   // Add a new function to handle saving a shuffle

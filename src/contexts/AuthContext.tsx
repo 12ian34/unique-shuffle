@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import supabase from '@/lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
+import { useAuthTracking } from '@/hooks/use-auth-tracking'
+import { trackEvent } from '@/lib/analytics'
 
 type AuthContextType = {
   user: User | null
@@ -35,6 +37,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
+  // Track user auth state in PostHog
+  useAuthTracking(
+    !!user,
+    user?.id,
+    user
+      ? {
+          email: user.email,
+          username: user.user_metadata?.username,
+        }
+      : undefined
+  )
+
   useEffect(() => {
     // Check active session
     const getSession = async () => {
@@ -62,12 +76,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentSession?.user || null)
 
       if (event === 'SIGNED_IN') {
-        // The user entry in the database will be created by the callback handler
-        // after email confirmation
+        // Track sign in event
+        trackEvent('user_signed_in', {
+          method: 'email',
+          userId: currentSession?.user?.id,
+        })
       } else if (event === 'SIGNED_OUT') {
-        // Handle signed out state
+        // Track sign out event
+        trackEvent('user_signed_out')
       } else if (event === 'USER_UPDATED') {
-        // Handle user updates, particularly important for email verification state changes
+        // Track user update event
+        trackEvent('user_updated', {
+          userId: currentSession?.user?.id,
+        })
       }
     })
 
@@ -88,6 +109,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { data, error: null }
     } catch (error: any) {
       console.error('Error signing in:', error)
+      // Track failed sign in attempt
+      trackEvent('signin_error', {
+        error: error.message,
+        email: email, // Safe to track for errors
+      })
       return { data: null, error }
     }
   }
@@ -105,9 +131,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error
 
+      // Track successful signup
+      trackEvent('user_signed_up', {
+        username,
+      })
+
       return { data, error: null }
     } catch (error: any) {
       console.error('Error signing up:', error)
+      // Track failed signup attempt
+      trackEvent('signup_error', {
+        error: error.message,
+        email: email, // Safe to track for errors
+      })
       return { data: null, error }
     }
   }

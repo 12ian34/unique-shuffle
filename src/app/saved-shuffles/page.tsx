@@ -10,6 +10,7 @@ import { DbShuffle } from '@/types'
 import { useToast } from '@/components/ui/use-toast'
 import { Copy, Share2 } from 'lucide-react'
 import { ToastButton } from '@/components/ui/toast-button'
+import { trackEvent } from '@/lib/analytics'
 
 export default function SavedShufflesPage() {
   const router = useRouter()
@@ -88,6 +89,12 @@ export default function SavedShufflesPage() {
         description: 'your shuffle can now be shared with others.',
         variant: 'success',
       })
+
+      // Track the share event
+      trackEvent('shuffle_shared', {
+        shuffleId,
+        method: 'saved_shuffles_page',
+      })
     } catch (error) {
       console.error('Error sharing shuffle:', error)
       toast({
@@ -108,6 +115,12 @@ export default function SavedShufflesPage() {
           </div>
         ),
         variant: 'destructive',
+      })
+
+      // Track the share error
+      trackEvent('shuffle_share_error', {
+        shuffleId,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
     } finally {
       // Clear sharing state when done
@@ -140,12 +153,23 @@ export default function SavedShufflesPage() {
         description: 'the shuffle has been removed from your saved shuffles.',
         variant: 'success',
       })
+
+      // Track the delete event
+      trackEvent('shuffle_deleted', {
+        shuffleId,
+      })
     } catch (error) {
       console.error('Error removing shuffle:', error)
       toast({
         title: 'error removing shuffle',
         description: 'there was a problem removing this shuffle from your saved shuffles.',
         variant: 'destructive',
+      })
+
+      // Track the delete error
+      trackEvent('shuffle_delete_error', {
+        shuffleId,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
     } finally {
       // Clear deleting state when done
@@ -163,6 +187,11 @@ export default function SavedShufflesPage() {
           description: 'share url has been copied to your clipboard',
           duration: 2000,
           variant: 'info',
+        })
+
+        // Track the copy link event
+        trackEvent('shuffle_link_copied', {
+          shareCode,
         })
       },
       (err) => {
@@ -188,6 +217,61 @@ export default function SavedShufflesPage() {
         })
       }
     )
+  }
+
+  const viewShuffle = async (shuffleId: string) => {
+    // Check if it has a valid ID
+    if (!shuffleId) {
+      toast({
+        title: 'error',
+        description: 'this shuffle cannot be viewed because it has no id.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Verify the shuffle exists before navigating
+    const { data: checkResult, error: checkError } = await supabase
+      .from('shuffles')
+      .select('id, is_saved')
+      .eq('id', shuffleId)
+      .single()
+
+    if (checkError || !checkResult) {
+      console.error('Error verifying shuffle:', checkError)
+      toast({
+        title: 'error',
+        description: (
+          <div className='flex flex-col gap-2'>
+            <p>this shuffle could not be found. it may have been deleted.</p>
+            <ToastButton href='/' variant='destructive'>
+              shuffle new cards
+            </ToastButton>
+          </div>
+        ),
+        variant: 'destructive',
+      })
+
+      // Track the error
+      trackEvent('saved_shuffle_view_error', {
+        shuffleId,
+        error: checkError ? 'Database error' : 'Shuffle not found',
+      })
+      return
+    }
+
+    if (!checkResult.is_saved) {
+      // Fix the saved status
+      await supabase.from('shuffles').update({ is_saved: true }).eq('id', shuffleId)
+    }
+
+    // Track the view event
+    trackEvent('saved_shuffle_viewed', {
+      shuffleId,
+    })
+
+    // Then navigate to the shuffle page
+    router.push(`/shared/${shuffleId}`)
   }
 
   if (isLoading) {
@@ -216,55 +300,7 @@ export default function SavedShufflesPage() {
               </CardHeader>
               <CardContent>
                 <div className='flex flex-col gap-2'>
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={async () => {
-                      // Check if it has a valid ID
-                      if (!shuffle.id) {
-                        toast({
-                          title: 'error',
-                          description: 'this shuffle cannot be viewed because it has no id.',
-                          variant: 'destructive',
-                        })
-                        return
-                      }
-
-                      // Verify the shuffle exists before navigating
-                      const { data: checkResult, error: checkError } = await supabase
-                        .from('shuffles')
-                        .select('id, is_saved')
-                        .eq('id', shuffle.id)
-                        .single()
-
-                      if (checkError || !checkResult) {
-                        console.error('Error verifying shuffle:', checkError)
-                        toast({
-                          title: 'error',
-                          description: (
-                            <div className='flex flex-col gap-2'>
-                              <p>this shuffle could not be found. it may have been deleted.</p>
-                              <ToastButton href='/' variant='destructive'>
-                                shuffle new cards
-                              </ToastButton>
-                            </div>
-                          ),
-                          variant: 'destructive',
-                        })
-                        return
-                      }
-
-                      if (!checkResult.is_saved) {
-                        // Fix the saved status
-                        await supabase
-                          .from('shuffles')
-                          .update({ is_saved: true })
-                          .eq('id', shuffle.id)
-                      }
-
-                      router.push(`/shared/${shuffle.id}`)
-                    }}
-                  >
+                  <Button size='sm' variant='outline' onClick={() => viewShuffle(shuffle.id)}>
                     view
                   </Button>
 

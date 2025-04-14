@@ -91,6 +91,7 @@ unique-shuffle/
 - **Authentication**: Supabase Auth
 - **Database**: PostgreSQL (via Supabase)
 - **Styling**: Tailwind CSS with shadcn UI components
+- **Analytics**: PostHog for event tracking and user behavior analysis
 
 ### Building for Production
 
@@ -103,6 +104,43 @@ npm run build
 ```
 npm test
 ```
+
+## Analytics with PostHog
+
+Unique Shuffle uses PostHog for analytics and event tracking:
+
+### Features Implemented
+
+- **Pageview Tracking**: Automatic tracking of all page views across the site
+- **User Identification**: Linking anonymous sessions to user accounts after login
+- **Event Tracking**: Capturing various user actions:
+  - Shuffle events (start, completion, errors)
+  - Pattern detection
+  - Achievement unlocks
+  - Auth events (login, signup, profile updates)
+  - Social actions (sharing, viewing shared shuffles)
+- **Session Recording**: Configurable recordings to help understand user behavior
+- **Feature Flags**: Support for enabling/disabling features per user
+
+### Setup
+
+To enable analytics:
+
+1. Sign up for a [PostHog](https://posthog.com/) account
+2. Create a project and get your API key
+3. Add the following to your `.env.local` file:
+   ```
+   NEXT_PUBLIC_POSTHOG_KEY=your_project_api_key
+   NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com  # or your host
+   ```
+
+### Implementation Details
+
+- Server-side tracking using `posthog-node`
+- Client-side tracking using `posthog-js`
+- React integration with `posthog-js/react` hooks
+- NextJS-specific implementation for both App Router and client components
+- Proxy configuration in `next.config.js` to avoid ad-blockers
 
 ## Interesting Facts
 
@@ -122,3 +160,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Supabase](https://supabase.io/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/)
+- [PostHog](https://posthog.com/)

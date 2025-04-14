@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
+import { trackEvent } from '@/lib/analytics'
 
 interface NavbarProps {
   className?: string
@@ -20,6 +21,8 @@ export function Navbar({ className }: NavbarProps) {
   const [showLeftIndicator, setShowLeftIndicator] = useState(false)
   const [showRightIndicator, setShowRightIndicator] = useState(false)
   const [showScrollHint, setShowScrollHint] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Filter navigation items to exclude Profile (since it's in the top-right)
   // and hide items that require authentication
@@ -34,6 +37,18 @@ export function Navbar({ className }: NavbarProps) {
 
     return true
   })
+
+  const handleNavigation = (path: string, label: string) => {
+    // Track navigation event
+    trackEvent('navigation', {
+      from: pathname,
+      to: path,
+      label: label,
+    })
+
+    // Close the menu if it's open
+    setIsMenuOpen(false)
+  }
 
   // Check scroll position to show/hide indicators
   const checkScroll = () => {
@@ -119,6 +134,7 @@ export function Navbar({ className }: NavbarProps) {
                       ? ''
                       : 'text-muted-foreground hover:text-foreground focus-effect'
                   )}
+                  onClick={() => handleNavigation(item.path, item.name)}
                 >
                   {item.name === 'Shuffle' ? (
                     <span className='relative group'>
@@ -159,6 +175,7 @@ export function Navbar({ className }: NavbarProps) {
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground focus-effect'
               )}
+              onClick={() => handleNavigation('/profile', 'Profile')}
             >
               profile
             </Link>
@@ -166,6 +183,7 @@ export function Navbar({ className }: NavbarProps) {
             <Link
               href='/auth'
               className='px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
+              onClick={() => handleNavigation('/auth', 'Sign In')}
             >
               login
             </Link>
