@@ -50,8 +50,6 @@ export async function GET(request: Request) {
         throw new Error('No user found after confirming email')
       }
 
-      console.log('User confirmed email, creating profile if needed:', user.id)
-
       // Check if the user profile already exists
       const { data: existingProfile, error: profileError } = await supabase
         .from('users')
@@ -65,7 +63,6 @@ export async function GET(request: Request) {
       }
 
       if (!existingProfile) {
-        console.log('Creating new user profile for:', user.id)
         // Create a profile if it doesn't exist yet
         const username = user.user_metadata?.username || `user-${user.id.substring(0, 8)}`
 
@@ -82,10 +79,6 @@ export async function GET(request: Request) {
           console.error('Error creating user profile:', insertError)
           throw insertError
         }
-
-        console.log('Successfully created user profile for:', user.id)
-      } else {
-        console.log('User profile already exists for:', user.id)
       }
 
       // Successful verification, redirect to profile page to ensure user record is verified

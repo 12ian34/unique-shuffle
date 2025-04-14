@@ -6,8 +6,6 @@ import { ErrorType, ErrorSeverity, createError, createValidationError } from '@/
 
 // Verify if a shuffle exists
 export async function GET(request: Request) {
-  console.log('📥 Received shuffle verification request')
-
   // Set CORS headers
   const origin = request.headers.get('origin') || ''
   const headers = {

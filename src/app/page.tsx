@@ -49,7 +49,6 @@ export default function HomePage() {
 
       // If authenticated, refresh the stats immediately
       if (data.session) {
-        console.log('User authenticated on page load, refreshing stats')
         refreshShuffleStats() // Refresh global stats
         refreshUserStats() // Refresh user stats
 
@@ -116,7 +115,6 @@ export default function HomePage() {
 
     // Prevent multiple executions for the same shuffle
     if (hasProcessedCurrentShuffleRef.current) {
-      console.log('This shuffle has already been processed, skipping')
       return
     }
 
@@ -125,7 +123,6 @@ export default function HomePage() {
 
     // Prevent concurrent save operations
     if (isSaveInProgressRef.current) {
-      console.log('Save operation already in progress, skipping')
       return
     }
 
@@ -143,7 +140,6 @@ export default function HomePage() {
       // Get the current user and auth session
       const { data: authData } = await supabase.auth.getSession()
       const accessToken = authData.session?.access_token
-      console.log('Auth Session Check:', authData.session ? 'Active session' : 'No session')
 
       // If not authenticated, show a toast with info about signing in AND check achievements client-side
       if (!authData.session) {
@@ -199,11 +195,8 @@ export default function HomePage() {
             body: JSON.stringify({ cards: animatedDeck }),
           })
 
-          console.log('API Response Status:', response.status)
-
           if (response.ok) {
             const data = await response.json()
-            console.log('Shuffle tracked successfully:', data.saved ? 'Saved to DB' : 'Not saved')
             saveSuccessful = true
 
             // Store the shuffle ID for save functionality
@@ -237,7 +230,6 @@ export default function HomePage() {
 
             // If we received userStats in the response, update the UI immediately
             if (data.userStats) {
-              console.log('Updating UI with received user stats:', data.userStats)
               // Dispatch an event to update the stats immediately
               const statsUpdateEvent = new CustomEvent('statsUpdate', {
                 detail: {
@@ -264,7 +256,6 @@ export default function HomePage() {
 
       // Only if the API method failed, try the direct method
       if (!saveSuccessful && authData.session) {
-        console.log('API save failed or unavailable, using direct DB access')
         await saveShuffleDirect(authData.session, animatedDeck)
       }
     } catch (error) {
@@ -280,12 +271,10 @@ export default function HomePage() {
   // Helper function to save shuffle directly to DB
   const saveShuffleDirect = async (session: any, deck: Deck) => {
     if (!session?.user) {
-      console.log('No active session for direct DB access')
       return
     }
 
     try {
-      console.log('Trying direct DB access')
       // Get user stats first
       const { data: userData } = await supabase
         .from('users')
@@ -332,8 +321,6 @@ export default function HomePage() {
             return
           }
 
-          console.log('Shuffle saved directly to database')
-
           // Get updated user stats after the update
           const { data: updatedUser, error: fetchUpdatedUserError } = await supabase
             .from('users')
@@ -347,7 +334,6 @@ export default function HomePage() {
             refreshShuffleStats()
             refreshUserStats()
           } else {
-            console.log('Updated user stats:', updatedUser)
             // Dispatch event with updated stats
             const statsUpdateEvent = new CustomEvent('statsUpdate', {
               detail: {
@@ -358,7 +344,7 @@ export default function HomePage() {
           }
         }
       } else {
-        console.log('User data not found for direct DB access')
+        // User data not found for direct DB access
       }
     } catch (error) {
       console.error('Error in direct DB access:', error)
@@ -409,13 +395,6 @@ export default function HomePage() {
         .eq('id', currentShuffleId)
         .select()
         .single()
-
-      console.log('Save shuffle result:', {
-        success: !error,
-        shuffleId: updatedShuffle?.id,
-        isSaved: updatedShuffle?.is_saved,
-        error,
-      })
 
       if (error) {
         console.error('Error saving shuffle:', error)
@@ -482,7 +461,6 @@ export default function HomePage() {
       return
     }
 
-    console.log(`Debugging shuffle with code: ${code}`)
     try {
       const response = await fetch(`/api/shuffle/verify?code=${code}`, {
         method: 'GET',
@@ -493,8 +471,6 @@ export default function HomePage() {
       })
 
       const data = await response.json()
-      console.log('Debug results:', data)
-
       return data
     } catch (error) {
       console.error('Error debugging shuffle:', error)
@@ -506,7 +482,6 @@ export default function HomePage() {
     if (typeof window !== 'undefined') {
       // @ts-ignore - Adding custom property to window for debugging
       window.debugShuffleCode = debugShuffleCode
-      console.log('Debug function available: debugShuffleCode("your-code-here")')
     }
   }, [])
 

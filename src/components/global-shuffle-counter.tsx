@@ -31,7 +31,6 @@ export function GlobalShuffleCounter({
 
   // Set initial user count from props and update when props change
   useEffect(() => {
-    console.log('GlobalShuffleCounter props updated:', { userShuffleCount, userStreak })
     setUserCount(userShuffleCount || 0)
     setStreak(userStreak || 0)
   }, [userShuffleCount, userStreak])
@@ -43,16 +42,12 @@ export function GlobalShuffleCounter({
       const response = await fetch('/api/shuffles/global-count')
       if (response.ok) {
         const data = await response.json()
-        console.log('Stats fetch response:', data)
         setGlobalCount(data.count)
 
         // If the API includes user stats, update those too
         if (data.userStats) {
-          console.log('User stats received:', data.userStats)
           setUserCount(data.userStats.total_shuffles || 0)
           setStreak(data.userStats.shuffle_streak || 0)
-        } else {
-          console.log('No user stats in response - user might not be authenticated')
         }
       }
     } catch (error) {
@@ -78,7 +73,6 @@ export function GlobalShuffleCounter({
 
     // Listen for stats update events
     const handleStatsUpdate = (event: CustomEvent) => {
-      console.log('Received stats update event:', event.detail)
       if (event.detail?.userStats) {
         const { userStats } = event.detail
         setUserCount(userStats.total_shuffles || 0)

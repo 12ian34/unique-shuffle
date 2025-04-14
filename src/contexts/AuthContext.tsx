@@ -62,13 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentSession?.user || null)
 
       if (event === 'SIGNED_IN') {
-        console.log('User signed in!')
         // The user entry in the database will be created by the callback handler
         // after email confirmation
       } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out!')
+        // Handle signed out state
       } else if (event === 'USER_UPDATED') {
-        console.log('User updated!')
         // Handle user updates, particularly important for email verification state changes
       }
     })

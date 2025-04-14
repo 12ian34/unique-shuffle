@@ -22,24 +22,20 @@ async function getAuthenticatedUser(request: Request) {
     }
 
     if (data?.user) {
-      console.log('Authenticated via server cookies:', data.user.id)
       return data.user
     }
 
     // If server-side auth fails, try to get from Authorization header
     const authHeader = request.headers.get('Authorization')
     if (!authHeader) {
-      console.log('No Authorization header present')
       return null
     }
 
     if (!authHeader.startsWith('Bearer ')) {
-      console.log('Authorization header is not Bearer token')
       return null
     }
 
     const token = authHeader.substring(7)
-    console.log('Found token in Authorization header, validating...')
 
     // Create a browser client to validate the token
     const browserClient = createBrowserClient(
@@ -56,11 +52,9 @@ async function getAuthenticatedUser(request: Request) {
       }
 
       if (!data.user) {
-        console.log('No user found with provided token')
         return null
       }
 
-      console.log('Authenticated via token:', data.user.id)
       return data.user
     } catch (error) {
       console.error('Exception in token authentication:', error)
@@ -78,24 +72,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || 'accepted'
 
-    // Get the current user with additional logging
+    // Get the current user
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
-      console.log('Authentication failed - no user found')
       return NextResponse.json(
         { error: createAuthError('Authentication required') },
         { status: 401 }
       )
     }
 
-    console.log('User authenticated:', user.id)
-    console.log('Fetching friends with status:', status)
-
     // Get the supabase client
     const supabase = await createClient()
-
-    console.log(`Querying for friendships with user ID: ${user.id} and status: ${status}`)
 
     // Query without using relationship joins - first as requester
     const { data: asRequester, error: requesterError } = await supabase
@@ -151,14 +139,8 @@ export async function GET(request: Request) {
 
     // Combine the results
     const friendships = [...(asRequester || []), ...(asRecipient || [])]
-    console.log(
-      `Found ${asRequester?.length || 0} friendships as requester, ${
-        asRecipient?.length || 0
-      } as recipient`
-    )
 
     if (!friendships || friendships.length === 0) {
-      console.log('No friendships found')
       return NextResponse.json({ data: [] })
     }
 

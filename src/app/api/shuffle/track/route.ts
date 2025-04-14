@@ -17,8 +17,6 @@ import {
 
 // Track a new shuffle
 export async function POST(request: Request) {
-  console.log('📥 Received shuffle track request')
-
   // Set CORS headers for credential-included requests
   const origin = request.headers.get('origin') || ''
   const headers = {
@@ -35,7 +33,6 @@ export async function POST(request: Request) {
 
   try {
     const { cards } = await request.json()
-    console.log('🎲 Cards data received, length:', cards?.length || 0)
 
     if (!cards || !Array.isArray(cards) || cards.length === 0) {
       const error = createValidationError('Invalid or empty cards data', {
@@ -49,7 +46,6 @@ export async function POST(request: Request) {
     let user: User | null = null
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      console.log('🔑 Found Authorization header')
       const token = authHeader.substring(7) // Remove "Bearer " prefix
 
       // Initialize a Supabase client to verify the token
@@ -71,7 +67,6 @@ export async function POST(request: Request) {
         console.error('❌ Error verifying token:', verifyError)
 
         // Fall back to cookie-based auth
-        console.log('🍪 Falling back to cookie-based auth')
         const supabase = await createClient()
         const { data: cookieUser, error: cookieError } = await supabase.auth.getUser()
 
@@ -86,7 +81,6 @@ export async function POST(request: Request) {
         }
 
         if (!cookieUser.user) {
-          console.log('👤 No authenticated user found via cookies')
           return NextResponse.json({ success: true, saved: false }, { headers })
         }
 
@@ -96,7 +90,6 @@ export async function POST(request: Request) {
       }
     } else {
       // No Authorization header, try cookie-based auth
-      console.log('🍪 No Authorization header, using cookie-based auth')
       const supabase = await createClient()
       const { data: cookieUser, error: cookieError } = await supabase.auth.getUser()
 
@@ -109,7 +102,6 @@ export async function POST(request: Request) {
       }
 
       if (!cookieUser.user) {
-        console.log('👤 No authenticated user found via cookies')
         return NextResponse.json({ success: true, saved: false }, { headers })
       }
 
@@ -117,7 +109,6 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
-      console.log('👤 No authenticated user found via any method')
       return NextResponse.json(
         {
           success: true,
@@ -127,8 +118,6 @@ export async function POST(request: Request) {
         { headers }
       )
     }
-
-    console.log('✅ User authenticated, saving shuffle for user:', user.id)
 
     // Use admin client for the rest of the operations to avoid RLS issues
     const supabaseAdmin = createBrowserClient(
@@ -181,8 +170,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error }, { status: 500, headers })
     }
 
-    console.log('Shuffle saved successfully:', shuffle.id)
-
     // Check for achievements
     let achievements: Achievement[] = []
     if (cards) {
@@ -217,8 +204,6 @@ export async function POST(request: Request) {
 
             if (insertError) {
               console.error('Error saving new achievement:', insertError)
-            } else {
-              console.log(`Saved new achievement "${achievement.id}"`)
             }
           }
         }
@@ -265,11 +250,7 @@ export async function POST(request: Request) {
 
       if (fetchUpdatedUserError) {
         console.error('Error fetching updated user data:', fetchUpdatedUserError)
-      } else {
-        console.log('Updated user stats:', updatedUser)
       }
-
-      console.log('User stats updated successfully, new count:', shuffleCount)
 
       // Return updated user stats in the response
       return NextResponse.json(

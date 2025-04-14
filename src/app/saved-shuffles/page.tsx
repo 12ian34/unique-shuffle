@@ -75,7 +75,6 @@ export default function SavedShufflesPage() {
       }
 
       const data = await response.json()
-      console.log('Shuffle shared with code:', data.shareCode)
 
       // Update local state
       setSavedShuffles(
@@ -221,8 +220,6 @@ export default function SavedShufflesPage() {
                     size='sm'
                     variant='outline'
                     onClick={async () => {
-                      console.log('Viewing saved shuffle with ID:', shuffle.id)
-
                       // Check if it has a valid ID
                       if (!shuffle.id) {
                         toast({
@@ -258,7 +255,6 @@ export default function SavedShufflesPage() {
                       }
 
                       if (!checkResult.is_saved) {
-                        console.log('Shuffle exists but is not saved, fixing...')
                         // Fix the saved status
                         await supabase
                           .from('shuffles')

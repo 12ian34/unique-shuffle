@@ -696,8 +696,6 @@ export default function ProfilePage() {
                           size='sm'
                           variant='outline'
                           onClick={async () => {
-                            console.log('Viewing saved shuffle with ID:', shuffle.id)
-
                             // Check if it has a valid ID
                             if (!shuffle.id) {
                               toast({
@@ -727,7 +725,6 @@ export default function ProfilePage() {
                             }
 
                             if (!checkResult.is_saved) {
-                              console.log('Shuffle exists but is not saved, fixing...')
                               // Fix the saved status
                               await supabase
                                 .from('shuffles')
@@ -749,64 +746,78 @@ export default function ProfilePage() {
                               // Prevent sharing if already in progress
                               if (sharingInProgress[shuffle.id]) return
 
+                              // Set sharing in progress for this shuffle
+                              setSharingInProgress((prev) => ({ ...prev, [shuffle.id]: true }))
+
                               try {
-                                // Set sharing state for this specific shuffle
-                                setSharingInProgress((prev) => ({ ...prev, [shuffle.id]: true }))
+                                // Generate a share code for the shuffle
+                                const shareCode = generateRandomString(10)
 
-                                // Use the shared API endpoint for sharing shuffles
-                                const response = await fetch('/api/shuffle/share', {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({ shuffleId: shuffle.id }),
-                                })
+                                // Update the shuffle with share code and sharing flag
+                                await supabase
+                                  .from('shuffles')
+                                  .update({
+                                    is_shared: true,
+                                    share_code: shareCode,
+                                  })
+                                  .eq('id', shuffle.id)
 
-                                if (!response.ok) {
-                                  throw new Error('Failed to share shuffle')
-                                }
-
-                                const data = await response.json()
-                                console.log('Shuffle shared with code:', data.shareCode)
-
-                                // Update local state
+                                // Update shuffle in local state
                                 setSavedShuffles(
                                   savedShuffles.map((s) =>
                                     s.id === shuffle.id
-                                      ? { ...s, is_shared: true, share_code: data.shareCode }
+                                      ? { ...s, is_shared: true, share_code: shareCode }
                                       : s
                                   )
                                 )
 
+                                // Copy the share link to clipboard
+                                const shareUrl = `${window.location.origin}/shared/${shareCode}`
+                                navigator.clipboard.writeText(shareUrl)
+
+                                // Show success toast
                                 toast({
                                   title: 'Shuffle shared',
-                                  description: 'Your shuffle can now be shared with others.',
+                                  description: 'Share link copied to clipboard',
+                                  variant: 'success',
                                 })
+
+                                const data = { shareCode }
+                                return data
                               } catch (error) {
                                 console.error('Error sharing shuffle:', error)
                                 toast({
                                   title: 'Error sharing shuffle',
-                                  description: 'There was a problem sharing your shuffle.',
+                                  description: 'There was a problem sharing this shuffle.',
                                   variant: 'destructive',
                                 })
+                                return null
                               } finally {
-                                // Clear sharing state when done
+                                // Clear sharing in progress
                                 setSharingInProgress((prev) => ({ ...prev, [shuffle.id]: false }))
                               }
                             }}
-                            disabled={sharingInProgress[shuffle.id]}
                           >
-                            <Share2 className='h-4 w-4 mr-1' />
-                            {sharingInProgress[shuffle.id] ? 'Sharing...' : 'Share'}
+                            {sharingInProgress[shuffle.id] ? (
+                              <Loader2 className='h-4 w-4 animate-spin mr-2' />
+                            ) : (
+                              <Share2 className='h-4 w-4 mr-2' />
+                            )}
+                            Share
                           </Button>
                         ) : (
-                          // Add copy button for already shared shuffles
                           <Button
                             size='sm'
                             variant='outline'
-                            onClick={() => copyShareUrl(shuffle.share_code || shuffle.id)}
+                            onClick={() => {
+                              if (shuffle.share_code) {
+                                copyShareUrl(shuffle.share_code)
+                              } else {
+                                copyShareUrl(shuffle.id)
+                              }
+                            }}
                           >
-                            <Copy className='h-4 w-4 mr-1' />
+                            <Copy className='h-4 w-4 mr-2' />
                             Copy Link
                           </Button>
                         )}
@@ -858,10 +869,6 @@ export default function ProfilePage() {
                           size='sm'
                           variant='outline'
                           onClick={() => {
-                            console.log('Viewing achievement shuffle:', {
-                              achievementId: achievement.id,
-                              shuffleId: achievement.shuffle_id,
-                            })
                             router.push(`/shared/${achievement.shuffle_id}`)
                           }}
                         >

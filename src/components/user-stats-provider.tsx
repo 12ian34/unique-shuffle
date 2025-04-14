@@ -65,7 +65,6 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      console.log('User stats fetched from DB:', data)
       setStats({
         userShuffleCount: data?.total_shuffles || 0,
         userStreak: data?.shuffle_streak || 0,
@@ -92,7 +91,6 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Listen for stats update events
     const handleStatsUpdate = (event: CustomEvent) => {
-      console.log('UserStatsProvider received stats update event:', event.detail)
       if (event.detail?.userStats) {
         const { userStats } = event.detail
         setStats((prevStats) => ({
