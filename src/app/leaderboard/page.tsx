@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { Button } from '@/components/ui/button'
 import supabase from '@/lib/supabase'
 import { LeaderboardEntry } from '@/types'
@@ -102,11 +103,17 @@ export default function LeaderboardPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={currentTab} onValueChange={handleTabChange}>
-              <TabsList className='grid w-full grid-cols-3 mb-8'>
-                <TabsTrigger value='total'>Total Shuffles</TabsTrigger>
-                <TabsTrigger value='achievements'>Achievements</TabsTrigger>
-                <TabsTrigger value='streak'>Daily Streak</TabsTrigger>
-              </TabsList>
+              <ScrollableTabsList variant='underline' className='mb-8'>
+                <TabsTrigger variant='underline' value='total'>
+                  Shuffles
+                </TabsTrigger>
+                <TabsTrigger variant='underline' value='achievements'>
+                  Achievements
+                </TabsTrigger>
+                <TabsTrigger variant='underline' value='streak'>
+                  Streak
+                </TabsTrigger>
+              </ScrollableTabsList>
 
               <TabsContent value='total'>
                 {renderLeaderboard(
@@ -190,7 +197,7 @@ function renderLeaderboard(
             <th className='text-left py-3 px-2'>Username</th>
             <th className='text-right py-3 px-2'>
               {sortField === 'totalShuffles'
-                ? 'Total Shuffles'
+                ? 'Shuffles'
                 : sortField === 'achievementCount'
                 ? 'Achievements'
                 : 'Streak'}

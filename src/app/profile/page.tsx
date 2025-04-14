@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import supabase from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { formatDate, generateRandomString } from '@/lib/utils'
@@ -14,6 +15,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/protected-route'
 import { Loader2, Pencil, X, Check } from 'lucide-react'
 import { MAX_USERNAME_LENGTH } from '@/lib/constants'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { useTheme } from 'next-themes'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -32,6 +35,7 @@ export default function ProfilePage() {
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [newUsername, setNewUsername] = useState('')
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false)
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => {
     async function fetchProfileData() {
@@ -565,6 +569,20 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Theme toggle */}
+            <div className='flex items-center justify-between mt-8 p-4 bg-muted rounded-md'>
+              <div>
+                <div className='font-medium'>Appearance</div>
+                <div className='text-sm text-muted-foreground'>
+                  Choose between dark and light mode
+                </div>
+              </div>
+              <div className='flex items-center space-x-2'>
+                <span className='text-sm'>{theme === 'dark' ? 'Dark' : 'Light'} Mode</span>
+                <ThemeToggle />
+              </div>
+            </div>
+
             <div className='flex justify-end mt-6'>
               <Button variant='outline' onClick={handleSignOut}>
                 Sign Out
@@ -574,11 +592,17 @@ export default function ProfilePage() {
         </Card>
 
         <Tabs defaultValue='saved'>
-          <TabsList className='grid w-full grid-cols-3 mb-8'>
-            <TabsTrigger value='saved'>Saved Shuffles</TabsTrigger>
-            <TabsTrigger value='achievements'>Recent Achievements</TabsTrigger>
-            <TabsTrigger value='friends'>Friends</TabsTrigger>
-          </TabsList>
+          <ScrollableTabsList variant='underline' className='mb-8'>
+            <TabsTrigger variant='underline' value='saved'>
+              Saved Shuffles
+            </TabsTrigger>
+            <TabsTrigger variant='underline' value='achievements'>
+              Recent Achievements
+            </TabsTrigger>
+            <TabsTrigger variant='underline' value='friends'>
+              Friends
+            </TabsTrigger>
+          </ScrollableTabsList>
 
           <TabsContent value='saved'>
             {savedShuffles.length === 0 ? (

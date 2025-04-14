@@ -53,41 +53,49 @@ export function ShuffleDisplay({ deck, patterns = [], className }: ShuffleDispla
   const groupEntries = Array.from(patternGroups.entries())
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-6'>
       {patterns.length > 0 && (
-        <div className='flex flex-wrap gap-2 mb-4'>
-          {/* Iterate through unique pattern groups instead of all patterns */}
-          {groupEntries.map(([indicesKey, groupPatterns], groupIndex) => {
-            const indices = indicesKey.split(',').map(Number)
-            const isSelected =
-              selectedIndices !== null &&
-              indices.length === selectedIndices.length &&
-              indices.every((i: number) => selectedIndices.includes(i))
+        <div className='space-y-3'>
+          <h3 className='text-lg font-medium'>Found Patterns</h3>
+          <div className='flex flex-wrap gap-2'>
+            {/* Iterate through unique pattern groups instead of all patterns */}
+            {groupEntries.map(([indicesKey, groupPatterns], groupIndex) => {
+              const indices = indicesKey.split(',').map(Number)
+              const isSelected =
+                selectedIndices !== null &&
+                indices.length === selectedIndices.length &&
+                indices.every((i: number) => selectedIndices.includes(i))
 
-            // Use the first pattern in the group for display
-            const pattern = groupPatterns[0]
+              // Use the first pattern in the group for display
+              const pattern = groupPatterns[0]
 
-            return (
-              <button
-                key={`pattern-group-${groupIndex}`}
-                onClick={() => setSelectedIndices(isSelected ? null : indices)}
-                className={cn(
-                  'px-3 py-1 text-sm rounded-md transition-colors',
-                  isSelected
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-primary/10 text-primary hover:bg-primary/20'
-                )}
-                title={pattern.description}
-              >
-                {pattern.name}
-                {groupPatterns.length > 1 ? ` (${groupPatterns.length})` : ''}
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={`pattern-group-${groupIndex}`}
+                  onClick={() => setSelectedIndices(isSelected ? null : indices)}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md transition-all duration-200 focus-effect',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30'
+                  )}
+                  title={pattern.description}
+                >
+                  {pattern.name}
+                  {groupPatterns.length > 1 ? ` (${groupPatterns.length})` : ''}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      <div className={cn('grid grid-cols-4 md:grid-cols-13 gap-2', className)}>
+      <div
+        className={cn(
+          'grid grid-cols-4 md:grid-cols-13 gap-2.5 bg-card/50 p-4 rounded-lg border border-border/30',
+          className
+        )}
+      >
         {deck.map((card) => (
           <Card key={card.index} card={card} isHighlighted={highlightedIndices.has(card.index)} />
         ))}

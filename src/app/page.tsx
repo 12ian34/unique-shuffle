@@ -395,96 +395,128 @@ export default function HomePage() {
   }
 
   return (
-    <div className='space-y-8'>
+    <div className='space-y-8 w-full overflow-x-hidden'>
       <div className='text-center max-w-2xl mx-auto'>
-        <h1 className='text-3xl font-bold tracking-tight sm:text-4xl'>Unique Shuffle</h1>
-        <p className='mt-4 text-muted-foreground leading-relaxed'>
+        <h1 className='text-4xl font-bold tracking-tight sm:text-5xl mb-4 gradient-text'>
+          Unique Shuffle
+        </h1>
+        <p className='text-lg text-muted-foreground mb-6 break-all'>
           There is a 1 in
           80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000
           chance that anyone has shuffled this before. It&apos;s probably unique:
         </p>
-        <div className='mt-6 flex flex-col sm:flex-row gap-3 justify-center'>
-          <Button size='lg' onClick={handleShuffle} disabled={isShuffling}>
+        <div className='flex justify-center'>
+          <Button
+            onClick={handleShuffle}
+            disabled={isShuffling}
+            size='lg'
+            className='shadow-lg hover:shadow-primary/20 transition-all duration-300'
+          >
             {isShuffling ? 'Shuffling...' : 'Shuffle Cards'}
           </Button>
-
-          {isAuthenticated === false && (
-            <Button size='lg' variant='outline' onClick={() => router.push('/auth')}>
-              Sign In to Save Shuffles
-            </Button>
-          )}
         </div>
       </div>
 
       {showAnimation && animatedDeck && (
-        <ShuffleAnimation cards={animatedDeck} onCompleteAction={handleAnimationComplete} />
-      )}
-
-      {newAchievements.length > 0 && (
-        <Card className='bg-primary/10 border-primary/20'>
-          <CardHeader>
-            <CardTitle>New Achievements Unlocked!</CardTitle>
-            <CardDescription>Congratulations on earning these for the first time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className='space-y-2'>
-              {newAchievements.map((achievement, index) => (
-                <li key={index} className='flex items-start gap-2'>
-                  <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm'>
-                    NEW
-                  </span>
-                  <div>
-                    <p className='font-medium'>{achievement.name}</p>
-                    <p className='text-sm text-muted-foreground'>{achievement.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {previouslyUnlockedAchievements.length > 0 && (
-        <Card className='bg-muted/30 border-muted'>
-          <CardHeader>
-            <CardTitle>Achievements Found Again</CardTitle>
-            <CardDescription>You&apos;ve previously unlocked these achievements</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className='space-y-2'>
-              {previouslyUnlockedAchievements.map((achievement, index) => (
-                <li key={index} className='flex items-start gap-2 opacity-75'>
-                  <div>
-                    <p className='font-medium'>{achievement.name}</p>
-                    <p className='text-sm text-muted-foreground'>{achievement.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+        <Card className='mx-auto card-hover'>
+          <CardContent className='p-6'>
+            <ShuffleAnimation
+              deck={animatedDeck}
+              onCompleteAction={handleAnimationComplete}
+              isShuffling={isShuffling}
+            />
           </CardContent>
         </Card>
       )}
 
       {shuffledDeck && (
         <>
-          {isAuthenticated && currentShuffleId && (
-            <div className='flex justify-end'>
-              <Button
-                variant={isShuffleSaved ? 'default' : 'outline'}
-                onClick={handleSaveShuffle}
-                disabled={isSaving || isShuffleSaved}
-                className='gap-2'
-              >
-                {isShuffleSaved ? (
-                  <BookmarkFilledIcon className='h-4 w-4' />
-                ) : (
-                  <BookmarkIcon className='h-4 w-4' />
+          <Card className='mx-auto card-hover'>
+            <CardHeader>
+              <div className='flex justify-between items-center'>
+                <CardTitle>Shuffled Deck</CardTitle>
+                {isAuthenticated && (
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={handleSaveShuffle}
+                    disabled={isShuffleSaved || isSaving}
+                    className='flex items-center gap-1'
+                  >
+                    {isShuffleSaved ? (
+                      <>
+                        <BookmarkFilledIcon className='h-4 w-4 text-primary' />
+                        <span>Saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookmarkIcon className='h-4 w-4' />
+                        <span>{isSaving ? 'Saving...' : 'Save'}</span>
+                      </>
+                    )}
+                  </Button>
                 )}
-                {isSaving ? 'Saving...' : isShuffleSaved ? 'Saved' : 'Save Shuffle'}
-              </Button>
-            </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ShuffleDisplay deck={shuffledDeck} />
+            </CardContent>
+          </Card>
+
+          {newAchievements.length > 0 && (
+            <Card className='bg-primary/10 border-primary/20 card-hover'>
+              <CardHeader>
+                <CardTitle>New Achievements Unlocked!</CardTitle>
+                <CardDescription>
+                  Congratulations on earning these for the first time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className='space-y-3'>
+                  {newAchievements.map((achievement, index) => (
+                    <li
+                      key={index}
+                      className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
+                    >
+                      <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm font-medium'>
+                        NEW
+                      </span>
+                      <div>
+                        <p className='font-medium'>{achievement.name}</p>
+                        <p className='text-sm text-muted-foreground'>{achievement.description}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           )}
-          <ShuffleDisplay deck={shuffledDeck} patterns={patterns} />
+
+          {previouslyUnlockedAchievements.length > 0 && (
+            <Card className='bg-muted/30 border-muted card-hover'>
+              <CardHeader>
+                <CardTitle>Achievements Found Again</CardTitle>
+                <CardDescription>
+                  You&apos;ve previously unlocked these achievements
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className='space-y-3'>
+                  {previouslyUnlockedAchievements.map((achievement, index) => (
+                    <li
+                      key={index}
+                      className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
+                    >
+                      <div>
+                        <p className='font-medium'>{achievement.name}</p>
+                        <p className='text-sm text-muted-foreground'>{achievement.description}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

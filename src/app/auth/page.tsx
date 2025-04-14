@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { generateUsername } from '@/utils/username-generator'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -101,10 +102,14 @@ export default function AuthPage() {
   return (
     <div className='max-w-md mx-auto pt-8'>
       <Tabs defaultValue='login'>
-        <TabsList className='grid w-full grid-cols-2'>
-          <TabsTrigger value='login'>Login</TabsTrigger>
-          <TabsTrigger value='signup'>Sign Up</TabsTrigger>
-        </TabsList>
+        <ScrollableTabsList variant='underline' className='mb-4'>
+          <TabsTrigger variant='underline' value='login'>
+            Login
+          </TabsTrigger>
+          <TabsTrigger variant='underline' value='signup'>
+            Sign Up
+          </TabsTrigger>
+        </ScrollableTabsList>
 
         <TabsContent value='login'>
           <Card>

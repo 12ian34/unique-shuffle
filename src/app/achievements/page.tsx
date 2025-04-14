@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { achievements } from '@/lib/achievements'
 import supabase from '@/lib/supabase'
 import { formatRelativeDate } from '@/lib/utils'
@@ -165,10 +166,14 @@ export default function AchievementsPage() {
       </Card>
 
       <Tabs defaultValue='earned'>
-        <TabsList className='grid w-full grid-cols-2 mb-8'>
-          <TabsTrigger value='earned'>Achievement Timeline</TabsTrigger>
-          <TabsTrigger value='available'>All Achievements</TabsTrigger>
-        </TabsList>
+        <ScrollableTabsList variant='underline' className='mb-8'>
+          <TabsTrigger variant='underline' value='earned'>
+            Achievement Timeline
+          </TabsTrigger>
+          <TabsTrigger variant='underline' value='available'>
+            All Achievements
+          </TabsTrigger>
+        </ScrollableTabsList>
 
         <TabsContent value='earned'>
           {isLoading ? (

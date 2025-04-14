@@ -1,17 +1,23 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Card as CardType } from '@/types'
+import { Card as CardType, Deck } from '@/types'
 import { Card } from './card'
 import { cn } from '@/lib/utils'
 
 interface ShuffleAnimationProps {
-  cards: CardType[]
+  deck: Deck
   onCompleteAction: () => void
+  isShuffling: boolean
   className?: string
 }
 
-export function ShuffleAnimation({ cards, onCompleteAction, className }: ShuffleAnimationProps) {
+export function ShuffleAnimation({
+  deck,
+  onCompleteAction,
+  isShuffling,
+  className,
+}: ShuffleAnimationProps) {
   const [animationStage, setAnimationStage] = useState<
     'initial' | 'shuffling' | 'spreading' | 'complete'
   >('initial')
@@ -57,7 +63,7 @@ export function ShuffleAnimation({ cards, onCompleteAction, className }: Shuffle
       hasCompletedRef.current = true
     }
     // Include onCompleteAction in the dependency array
-  }, [cards, onCompleteAction])
+  }, [deck, onCompleteAction])
 
   return (
     <div className={cn('relative w-full h-[50vh] overflow-hidden', className)}>
@@ -70,10 +76,15 @@ export function ShuffleAnimation({ cards, onCompleteAction, className }: Shuffle
           animationStage === 'complete' && 'scale-100 opacity-100'
         )}
       >
-        {cards.map((card) => (
+        {deck.map((card) => (
           <Card key={card.index} card={card} isHighlighted={false} />
         ))}
       </div>
+      {isShuffling && animationStage !== 'complete' && (
+        <div className='absolute inset-0 flex items-center justify-center'>
+          <div className='text-primary text-lg font-medium animate-pulse'>Shuffling cards...</div>
+        </div>
+      )}
     </div>
   )
 }

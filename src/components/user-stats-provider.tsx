@@ -119,7 +119,7 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
   return (
     <UserStatsContext.Provider value={stats}>
       {children}
-      <div className='border-t px-4 py-2 text-sm text-muted-foreground bg-muted/50'>
+      <div className='border-t border-border px-4 py-1 text-sm bg-card'>
         <GlobalShuffleCounter
           userShuffleCount={stats.userShuffleCount}
           userStreak={stats.userStreak}

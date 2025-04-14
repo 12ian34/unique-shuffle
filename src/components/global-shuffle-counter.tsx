@@ -97,20 +97,20 @@ export function GlobalShuffleCounter({
   }, [fetchAllStats])
 
   return (
-    <div className='flex flex-wrap justify-center gap-4 md:gap-8'>
+    <div className='flex flex-wrap justify-center gap-4 md:gap-8 py-2'>
       <div className='flex items-center space-x-1'>
-        <span className='font-medium'>Global shuffles:</span>
-        <span>{formatLargeNumber(globalCount)}</span>
+        <span className='text-foreground'>Global shuffles:</span>
+        <span className='stat-value'>{formatLargeNumber(globalCount)}</span>
       </div>
 
       <div className='flex items-center space-x-1'>
-        <span className='font-medium'>Your shuffles:</span>
-        <span>{formatLargeNumber(userCount)}</span>
+        <span className='text-foreground'>Your shuffles:</span>
+        <span className='stat-value'>{formatLargeNumber(userCount)}</span>
       </div>
 
       <div className='flex items-center space-x-1'>
-        <span className='font-medium'>Daily streak:</span>
-        <span>{streak}</span>
+        <span className='text-foreground'>Daily streak:</span>
+        <span className='stat-value'>{streak}</span>
       </div>
     </div>
   )

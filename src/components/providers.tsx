@@ -2,6 +2,7 @@
 
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ThemeProvider } from '@/components/theme-provider'
 
 interface ProvidersProps {
   children: React.ReactNode
@@ -10,8 +11,10 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <AuthProvider>
-      {children}
-      <Toaster />
+      <ThemeProvider defaultTheme='dark' attribute='class'>
+        {children}
+        <Toaster />
+      </ThemeProvider>
     </AuthProvider>
   )
 }

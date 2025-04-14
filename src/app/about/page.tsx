@@ -15,7 +15,7 @@ export default function AboutPage() {
           <CardTitle>What is Unique Shuffle?</CardTitle>
           <CardDescription>The story behind our application</CardDescription>
         </CardHeader>
-        <CardContent className='prose prose-sm max-w-none'>
+        <CardContent className='prose prose-sm max-w-none break-all'>
           <p>
             Unique Shuffle is a web application that allows users to shuffle playing cards, save
             their shuffles, and earn achievements based on patterns and usage.
