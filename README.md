@@ -2,39 +2,62 @@
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/5e8bd144-63c7-46ab-ab91-4e47ff15d12c/deploy-status)](https://app.netlify.com/sites/unique-shuffle/deploys)
 
+a standard deck of 52 playing cards can be arranged in 52! (52 factorial) different ways:
+
+52!
+
+= 52 x 51 x 50 x ... x 3 x 2 x 1
+
+= 8.0658 × 10^67
+
+if every person on Earth generated a trillion shuffles per second since the beginning of the universe, we would have explored only a tiny fraction of all possible arrangements
+
+'unique shuffle' is an online card shuffling game with achievements, pattern detection and social features
+
 https://unique-shuffle.netlify.app
 
-Unique Shuffle is a web application that lets users generate and explore random card shuffles, track interesting patterns, and earn achievements through gamified interactions.
+## screens
 
-![Unique Shuffle](https://placekitten.com/800/400)
+<table>
+   <tr>
+      <td><img src="https://github.com/user-attachments/assets/9e9f4a03-ff1a-436c-acad-80beb9f47d22" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/f1618fb7-8f10-4d1e-977e-66c39e16f10c" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/7cda2cc5-d76b-4a32-b6b3-16e0c67444dd" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/b30a3713-4c79-43a4-bba4-28f23adf8119" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/ba8bced0-d281-47e0-992d-9a0993ec0364" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/859c2527-e4b7-4c84-8f9f-d14ba80dbaf4" width="150"></td>
+      <td><img src="https://github.com/user-attachments/assets/eabd271c-71b7-4291-a978-a52e07f85384" width="150"></td>
+   </tr>
+</table>
 
-## Features
+## features
 
-- **Card Shuffling**: Generate truly random shuffles of a standard deck of 52 playing cards
-- **Pattern Analysis**: Automatically detect interesting patterns and sequences in each shuffle
-- **Achievements**: Earn badges and rewards for specific patterns, milestones, and daily streaks
-- **User Profiles**: Create an account to save favorite shuffles and track your collection
-- **Leaderboards**: Compete globally for achievements and rare shuffle discoveries
-- **Social Sharing**: Share your unique shuffles via custom URLs or social media integrations
+- randomly shuffle a virtual deck
+- pattern detection and highlighting
+- achievements
+- shuffle saving
+- shuffle sharing
+- global leaderboard
+- add a friend
 
-## Getting Started
+## for devs
 
-### Prerequisites
+### prerequisites
 
 - Node.js 18+ and npm/yarn/pnpm
 - Supabase account for backend services
 - PostHog account for analytics (optional)
 
-### Installation
+### installation
 
-1. Clone the repository:
+1. clone repo:
 
    ```bash
    git clone https://github.com/your-username/unique-shuffle.git
    cd unique-shuffle
    ```
 
-2. Install dependencies:
+2. install dependencies:
 
    ```bash
    npm install
@@ -44,22 +67,22 @@ Unique Shuffle is a web application that lets users generate and explore random 
    pnpm install
    ```
 
-3. Set up environment variables:
+3. set up env vars:
 
    ```bash
    cp .env.example .env.local
    ```
 
-   Then edit `.env.local` with your Supabase credentials and other required values.
+   then edit `.env.local` with your Supabase credentials and other required values.
 
-4. Run migrations in your Supabase database:
+4. run supabase db migrations
 
    ```bash
    npx supabase db push
    # or manually run SQL files from src/migrations
    ```
 
-5. Start the development server:
+5. start dev server:
 
    ```bash
    npm run dev
@@ -69,23 +92,9 @@ Unique Shuffle is a web application that lets users generate and explore random 
    pnpm dev
    ```
 
-6. Visit `http://localhost:3000` to see the application
+6. visit `http://localhost:3000`
 
-## Authentication Flow
-
-Unique Shuffle implements a secure, multi-step authentication process using Supabase Auth:
-
-1. **Sign Up**: User creates an account with email + password or OAuth provider
-2. **Email Verification**: Verification email sent with secure, time-limited token
-3. **Account Activation**: Upon verification, the system:
-   - Confirms the user in Supabase Auth
-   - Creates a user record in the database with default values
-   - Initializes stats (total_shuffles, achievements, shuffle_streak)
-4. **Sign In**: Verified users can access their personalized experience
-
-This approach ensures data integrity, reduces fake accounts, and provides a secure foundation for user data.
-
-## Project Structure
+## project structure
 
 ```
 unique-shuffle/
@@ -111,72 +120,31 @@ unique-shuffle/
 └── README.md             # Project documentation
 ```
 
-## Technology Stack
+### tech stack
 
-### Frontend
+#### frontend
 
-- **Framework**: Next.js 14 with App Router and React 18
-- **State Management**: React Context + Hooks, Server Actions
-- **Styling**: Tailwind CSS, shadcn/ui components
-- **Animation**: Framer Motion for card interactions
+- Next.js 14 with App Router and React 18
+- React Context + Hooks, Server Actions
+- Tailwind CSS, shadcn/ui components
+- Framer Motion for card interactions
 
-### Backend
+#### backend
 
-- **API**: Next.js API Routes, Server Components
-- **Database**: PostgreSQL via Supabase
-- **Authentication**: Supabase Auth with OAuth integrations
-- **Storage**: Supabase Storage for user assets
+- Next.js API Routes, Server Components
+- PostgreSQL via Supabase
+- Supabase Auth with OAuth integrations
+- Supabase Storage for user assets
 
-### DevOps
+#### dev ops
 
-- **Hosting**: Netlify for frontend and serverless functions
-- **CI/CD**: GitHub Actions for automated testing and deployment
-- **Analytics**: PostHog for event tracking and analysis
-- **Monitoring**: Sentry for error tracking
+- Netlify for frontend and serverless functions
+- GitHub Actions for automated testing and deployment
+- PostHog for event tracking and analysis
 
-## Analytics Implementation
+### contributing
 
-Unique Shuffle utilizes PostHog for comprehensive user analytics:
-
-### Tracked Events
-
-- **Shuffle Analytics**: Frequency, timing, and type of shuffles
-- **Pattern Discovery**: Detection of patterns and user interactions
-- **Achievement Metrics**: Completion rates and progression paths
-- **Session Data**: User journeys and feature engagement
-- **Performance Metrics**: Load times and interaction delays
-
-### Setup
-
-1. Create a [PostHog](https://posthog.com/) account
-2. Add your API keys to environment variables:
-
-   ```
-   NEXT_PUBLIC_POSTHOG_KEY=your_project_api_key
-   NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
-   ```
-
-3. (Optional) Configure data retention and GDPR compliance settings
-
-### Technical Implementation
-
-- Isomorphic tracking via PostHog SDK
-- Custom event properties for detailed analysis
-- GDPR-compliant consent management
-- Feature flag integration for A/B testing
-- Performance impact minimized through batching and lazy-loading
-
-## Card Mathematics
-
-A standard deck of 52 playing cards can be arranged in 52! (52 factorial) different ways:
-
-52! = 8.0658 × 10^67
-
-This number is so astronomically large that even if every person on Earth generated a trillion shuffles per second since the beginning of the universe, we would have explored only a tiny fraction of all possible arrangements.
-
-## Contributing
-
-We welcome contributions to Unique Shuffle! Please follow these steps:
+contibutions welcome!
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -184,13 +152,7 @@ We welcome contributions to Unique Shuffle! Please follow these steps:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-See our [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
+### ack
 
 - [Next.js](https://nextjs.org/) - React framework
 - [Supabase](https://supabase.io/) - Open source Firebase alternative
