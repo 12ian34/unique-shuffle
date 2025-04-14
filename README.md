@@ -40,6 +40,10 @@ https://unique-shuffle.netlify.app
 - global leaderboard
 - add a friend
 
+## feature requests
+
+welcome! just [create an issue](https://github.com/12ian34/unique-shuffle/issues/new)
+
 ## for devs
 
 ### prerequisites
@@ -48,53 +52,27 @@ https://unique-shuffle.netlify.app
 - Supabase account for backend services
 - PostHog account for analytics (optional)
 
-### installation
+### frontend
 
-1. clone repo:
+- next.js 14 with router and react 18
+- react context + hooks, server actions
+- tailwind CSS, shadcn/ui
+- framer motion
+- posthog for event tracking and analysis
 
-   ```bash
-   git clone https://github.com/your-username/unique-shuffle.git
-   cd unique-shuffle
-   ```
+### backend
 
-2. install dependencies:
+- next.js API Routes, server components
+- postgresql via supabase
+- supabase auth
+- supabase storage
+- netlify for deployment and functions
 
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
+### contributing
 
-3. set up env vars:
+welcome!
 
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   then edit `.env.local` with your Supabase credentials and other required values.
-
-4. run supabase db migrations
-
-   ```bash
-   npx supabase db push
-   # or manually run SQL files from src/migrations
-   ```
-
-5. start dev server:
-
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   ```
-
-6. visit `http://localhost:3000`
-
-## project structure
+### project structure
 
 ```
 unique-shuffle/
@@ -119,44 +97,3 @@ unique-shuffle/
 ├── package.json          # Project dependencies and scripts
 └── README.md             # Project documentation
 ```
-
-### tech stack
-
-#### frontend
-
-- Next.js 14 with App Router and React 18
-- React Context + Hooks, Server Actions
-- Tailwind CSS, shadcn/ui components
-- Framer Motion for card interactions
-
-#### backend
-
-- Next.js API Routes, Server Components
-- PostgreSQL via Supabase
-- Supabase Auth with OAuth integrations
-- Supabase Storage for user assets
-
-#### dev ops
-
-- Netlify for frontend and serverless functions
-- GitHub Actions for automated testing and deployment
-- PostHog for event tracking and analysis
-
-### contributing
-
-contibutions welcome!
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### ack
-
-- [Next.js](https://nextjs.org/) - React framework
-- [Supabase](https://supabase.io/) - Open source Firebase alternative
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [shadcn/ui](https://ui.shadcn.com/) - UI component library
-- [PostHog](https://posthog.com/) - Open-source product analytics
-- [Netlify](https://netlify.com/) - Deployment platform
