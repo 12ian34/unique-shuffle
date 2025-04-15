@@ -69,17 +69,21 @@ export function GlobalShuffleCounter({
     <div className='flex flex-wrap justify-center gap-4 md:gap-8 py-2'>
       <div className='flex items-center space-x-1'>
         <span className='text-foreground'>global shuffles:</span>
-        <span className='stat-value'>{formatLargeNumber(globalCount)}</span>
+        <span className='stat-value animate-opacity-pulse-subtle'>
+          {formatLargeNumber(globalCount)}
+        </span>
       </div>
 
       <div className='flex items-center space-x-1'>
         <span className='text-foreground'>your shuffles:</span>
-        <span className='stat-value'>{formatLargeNumber(userShuffleCount)}</span>
+        <span className='stat-value animate-opacity-pulse-subtle'>
+          {formatLargeNumber(userShuffleCount)}
+        </span>
       </div>
 
       <div className='flex items-center space-x-1'>
         <span className='text-foreground'>streak:</span>
-        <span className='stat-value'>{userStreak}</span>
+        <span className='stat-value animate-opacity-pulse-subtle'>{userStreak}</span>
       </div>
     </div>
   )

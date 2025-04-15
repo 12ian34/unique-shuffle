@@ -91,7 +91,7 @@
   }
 
   .stat-value {
-    @apply text-primary font-medium;
+    @apply font-medium;
   }
 
   /* Hide scrollbar but keep functionality */

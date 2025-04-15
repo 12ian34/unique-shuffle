@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+const plugin = require('tailwindcss/plugin')
 
 const config: Config = {
   content: [
@@ -70,24 +71,31 @@ const config: Config = {
             transform: 'scale(1.03)',
           },
         },
-        'glow-pulse-subtle': {
+        'opacity-pulse-subtle': {
           '0%, 100%': {
-            textShadow: '0 0 4px rgba(255, 255, 255, 0.7), 0 0 8px rgba(147, 51, 234, 0.5)',
-            transform: 'scale(1)',
+            opacity: '0.05',
           },
-          '50%': {
-            textShadow: '0 0 8px rgba(255, 255, 255, 0.9), 0 0 15px rgba(147, 51, 234, 0.7)',
-            transform: 'scale(1.01)',
+          '40%': {
+            opacity: '1',
           },
         },
       },
       animation: {
         'quick-shake': 'quick-shake 0.25s ease-in-out',
         'glow-text': 'glow-pulse 2s ease-in-out infinite',
-        'glow-text-subtle': 'glow-pulse-subtle 2.5s ease-in-out infinite',
+        'opacity-pulse-subtle': 'opacity-pulse-subtle 1.8s ease-in-out infinite',
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(function ({ addUtilities }: { addUtilities: any }) {
+      const newUtilities = {
+        '.text-shadow-bright': {
+          textShadow: '0 0 1px rgba(255, 255, 255, 0.9)',
+        },
+      }
+      addUtilities(newUtilities)
+    }),
+  ],
 }
 export default config
