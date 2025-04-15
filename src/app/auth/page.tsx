@@ -98,29 +98,21 @@ export default function AuthPage() {
     try {
       if (isSignUp) {
         // Sign up flow
-        const { error, data } = await signUp(email, password, username)
+        const { error } = await signUp(email, password, username)
 
         if (error) throw error
 
-        if (!data?.session) {
-          // User needs to verify email
-          setSuccess(
-            'Account created successfully! Please check your email for a confirmation link.'
-          )
+        // If no error, assume success and email verification is needed
+        setSuccess('Account created successfully! Please check your email for a confirmation link.')
 
-          // Track verification needed (funnel step)
-          trackEvent('auth_verification_needed', {
-            email: email.includes('@') ? email.split('@')[1] : 'unknown',
-          })
+        // Track verification needed (funnel step)
+        trackEvent('auth_verification_needed', {
+          email: email.includes('@') ? email.split('@')[1] : 'unknown',
+        })
 
-          setEmail('')
-          setPassword('')
-          setUsername(generateUsername())
-        } else {
-          // Auto-login case (shouldn't happen with email verification)
-          setSuccess('Account created successfully!')
-          // Router will auto-redirect due to session change
-        }
+        setEmail('')
+        setPassword('')
+        setUsername(generateUsername())
       } else {
         // Sign in flow
         const { error } = await signIn(email, password)

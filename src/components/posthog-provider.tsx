@@ -20,10 +20,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             password: true,
           },
         },
-        // Debug mode in development
-        loaded: (posthog) => {
-          if (process.env.NODE_ENV === 'development') posthog.debug()
-        },
+        debug: false, // Explicitly disable debug mode
       })
     }
   }, [])

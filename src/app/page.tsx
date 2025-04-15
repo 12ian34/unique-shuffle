@@ -6,9 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { createDeck, shuffleDeck } from '@/lib/cards'
 import { findPatterns, checkAchievements } from '@/lib/achievements'
 import { Deck, Pattern, Achievement } from '@/types'
-import { ShuffleDisplay } from '@/components/shuffle-display'
-import { ShuffleAnimation } from '@/components/shuffle-animation'
-import supabase from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
 import { refreshShuffleStats } from '@/components/global-shuffle-counter'
@@ -18,9 +16,20 @@ import { generateRandomString } from '@/lib/utils'
 import { ToastButton } from '@/components/ui/toast-button'
 import { trackEvent } from '@/lib/analytics'
 import { usePostHog } from 'posthog-js/react'
+import { Session } from '@supabase/supabase-js'
+import dynamic from 'next/dynamic'
+
+// Add dynamic component loading
+const ShuffleAnimation = dynamic(() =>
+  import('@/components/shuffle-animation').then((mod) => mod.ShuffleAnimation)
+)
+const ShuffleDisplay = dynamic(() =>
+  import('@/components/shuffle-display').then((mod) => mod.ShuffleDisplay)
+)
 
 export default function HomePage() {
   const router = useRouter()
+  const { session, supabase, isLoading: isAuthLoading } = useAuth()
   const [shuffledDeck, setShuffledDeck] = useState<Deck | null>(null)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [isShuffling, setIsShuffling] = useState(false)
@@ -45,39 +54,38 @@ export default function HomePage() {
   >([])
 
   useEffect(() => {
-    // Check auth status when component mounts
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession()
-      setIsAuthenticated(!!data.session)
+    // Auth status is now driven by the session object from useAuth
+    setIsAuthenticated(!!session)
 
-      // If authenticated, refresh the stats immediately
-      if (data.session) {
-        refreshShuffleStats() // Refresh global stats
-        refreshUserStats() // Refresh user stats
+    // If session exists, refresh stats (already happens in useAuth effect? Maybe remove here)
+    if (session) {
+      // refreshShuffleStats() // Maybe redundant if AuthProvider handles initial load
+      // refreshUserStats()    // Maybe redundant
 
-        // Fetch previously earned achievements
+      // Fetch previously earned achievements (using client from context)
+      const fetchAchievements = async () => {
+        if (!session.user) return
         const { data: userAchievements } = await supabase
           .from('achievements')
           .select('achievement_id')
-          .eq('user_id', data.session.user.id)
+          .eq('user_id', session.user.id)
 
-        // Create a set of previously earned achievement IDs
         const previouslyEarnedAchievementIds = new Set(
           userAchievements?.map((a) => a.achievement_id) || []
         )
-
-        // Store this set for later use
         setUserPreviousAchievements(previouslyEarnedAchievementIds)
       }
-
-      // Track page view as funnel start
-      trackEvent('home_page_viewed', {
-        isAuthenticated: !!data.session,
-      })
+      fetchAchievements()
     }
 
-    checkAuth()
-  }, [])
+    // Track page view (consider auth loading state)
+    if (!isAuthLoading) {
+      // Only track once auth state is determined
+      trackEvent('home_page_viewed', {
+        isAuthenticated: !!session,
+      })
+    }
+  }, [session, supabase, isAuthLoading, router]) // Add supabase, isAuthLoading to dependencies
 
   // Create ref to store previously earned achievements
   const userPreviousAchievementsRef = useRef(new Set<string>())
@@ -173,11 +181,10 @@ export default function HomePage() {
       })
 
       // Get the current user and auth session
-      const { data: authData } = await supabase.auth.getSession()
-      const accessToken = authData.session?.access_token
+      const accessToken = session?.access_token
 
       // If not authenticated, show a toast with info about signing in AND check achievements client-side
-      if (!authData.session) {
+      if (!session) {
         // Check achievements client-side for non-authenticated users
         // Use 0 as shuffle count since we can't track for anonymous users
         const earnedAchievementsForAnonymous = checkAchievements(animatedDeck, 0)
@@ -274,13 +281,15 @@ export default function HomePage() {
 
             // If we received userStats in the response, update the UI immediately
             if (data.userStats) {
-              // Dispatch an event to update the stats immediately
+              // Dispatch event for immediate user stats update
               const statsUpdateEvent = new CustomEvent('statsUpdate', {
                 detail: {
                   userStats: data.userStats,
                 },
               })
               window.dispatchEvent(statsUpdateEvent)
+              // Also trigger refresh for global count
+              refreshShuffleStats()
             } else {
               // Fallback to refresh from API
               refreshShuffleStats()
@@ -299,8 +308,8 @@ export default function HomePage() {
       }
 
       // Only if the API method failed, try the direct method
-      if (!saveSuccessful && authData.session) {
-        await saveShuffleDirect(authData.session, animatedDeck)
+      if (!saveSuccessful && session) {
+        await saveShuffleDirect(session, animatedDeck)
       }
     } catch (error) {
       console.error('Error processing shuffle:', error)
@@ -321,7 +330,7 @@ export default function HomePage() {
   }
 
   // Helper function to save shuffle directly to DB
-  const saveShuffleDirect = async (session: any, deck: Deck) => {
+  const saveShuffleDirect = async (session: Session, deck: Deck) => {
     if (!session?.user) {
       return
     }
@@ -386,13 +395,15 @@ export default function HomePage() {
             refreshShuffleStats()
             refreshUserStats()
           } else {
-            // Dispatch event with updated stats
+            // Dispatch event with updated stats for immediate user update
             const statsUpdateEvent = new CustomEvent('statsUpdate', {
               detail: {
                 userStats: updatedUser,
               },
             })
             window.dispatchEvent(statsUpdateEvent)
+            // Also trigger refresh for global count
+            refreshShuffleStats()
           }
         }
       } else {
@@ -416,7 +427,7 @@ export default function HomePage() {
       shuffleId: currentShuffleId,
     })
 
-    if (!currentShuffleId || !isAuthenticated) {
+    if (!currentShuffleId || !session) {
       toast({
         title: 'cannot save shuffle',
         description: (
@@ -542,7 +553,7 @@ export default function HomePage() {
 
   // Expose the debug function to the window object for debugging in console
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
       // @ts-ignore - Adding custom property to window for debugging
       window.debugShuffleCode = debugShuffleCode
     }
@@ -598,10 +609,10 @@ export default function HomePage() {
             <Card className='bg-primary/10 border-primary/20 card-hover'>
               <CardHeader>
                 <CardTitle>
-                  {isAuthenticated ? 'new achievements unlocked!' : 'achievements unlocked!'}
+                  {session ? 'new achievements unlocked!' : 'achievements unlocked!'}
                 </CardTitle>
                 <CardDescription>
-                  {isAuthenticated
+                  {session
                     ? 'congratulations on earning these for the first time'
                     : 'login to save these achievements to your profile'}
                 </CardDescription>
@@ -614,7 +625,7 @@ export default function HomePage() {
                       className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
                     >
                       <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm font-medium'>
-                        {isAuthenticated ? 'new' : 'earned'}
+                        {session ? 'new' : 'earned'}
                       </span>
                       <div>
                         <p className='font-medium'>{achievement.name}</p>
@@ -623,7 +634,7 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                {!isAuthenticated && newAchievements.length > 0 && (
+                {!session && newAchievements.length > 0 && (
                   <div className='mt-4 text-center'>
                     <Button
                       onClick={() => router.push('/auth?tab=signup')}
@@ -668,7 +679,7 @@ export default function HomePage() {
             <CardHeader>
               <div className='flex justify-between items-center'>
                 <CardTitle>shuffled deck</CardTitle>
-                {isAuthenticated && (
+                {session && (
                   <Button
                     variant='ghost'
                     size='sm'

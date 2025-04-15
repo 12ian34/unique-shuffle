@@ -39,7 +39,9 @@ export function GlobalShuffleCounter({
   const fetchAllStats = useCallback(async () => {
     try {
       // Fetch global count
-      const response = await fetch('/api/shuffles/global-count')
+      const response = await fetch('/api/shuffles/global-count', {
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         setGlobalCount(data.count)

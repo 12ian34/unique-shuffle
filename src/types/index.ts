@@ -89,3 +89,10 @@ export interface LeaderboardEntry {
   achievementCount: number
   shuffleStreak: number
 }
+
+// Type for user stats subset
+export interface UserStats {
+  total_shuffles: number | null
+  shuffle_streak: number | null
+  last_shuffle_date: string | null
+}

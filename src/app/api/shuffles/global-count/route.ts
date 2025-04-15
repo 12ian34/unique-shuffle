@@ -4,21 +4,27 @@ import { GLOBAL_SHUFFLES_KEY } from '@/lib/constants'
 import { ErrorType, ErrorSeverity, createError, createDatabaseError } from '@/lib/errors'
 import { createClient } from '@/lib/supabase-server'
 
+// Force dynamic execution to prevent caching and ensure cookies are read
+export const dynamic = 'force-dynamic'
+
 // Fetch the global shuffle count
 export async function GET() {
   try {
-    // Get the global count
-    const { count, error } = await supabaseAdmin
-      .from('shuffles')
-      .select('*', { count: 'exact', head: true })
+    // Get the sum of total_shuffles from all users
+    const { data: globalCountData, error: globalCountError } = await supabaseAdmin
+      .from('users')
+      .select('total_shuffles')
 
-    if (error) {
-      console.error('Error fetching global shuffle count:', error)
-      const appError = createDatabaseError('Failed to fetch global shuffle count', {
-        originalError: error,
+    if (globalCountError) {
+      console.error('Error fetching global shuffle sum:', globalCountError)
+      const appError = createDatabaseError('Failed to fetch global shuffle sum', {
+        originalError: globalCountError,
       })
       return NextResponse.json({ error: appError }, { status: 500 })
     }
+
+    // Calculate the sum
+    const count = globalCountData?.reduce((sum, user) => sum + (user.total_shuffles || 0), 0) || 0
 
     // Try to get current user stats if authenticated
     const supabase = await createClient()
@@ -33,9 +39,16 @@ export async function GET() {
         .eq('id', authData.user.id)
         .single()
 
+      if (userError) {
+        console.error('[Global Count API] Error fetching user stats:', userError)
+      }
+
       if (!userError && userData) {
         userStats = userData
+      } else {
+        console.error(userError)
       }
+    } else {
     }
 
     return NextResponse.json(

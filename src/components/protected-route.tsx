@@ -9,14 +9,14 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth()
+  const { session, isLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !session) {
       router.push('/auth')
     }
-  }, [user, isLoading, router])
+  }, [session, isLoading, router])
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -24,7 +24,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Don't render children if not authenticated
-  if (!user) {
+  if (!session) {
     return null
   }
 

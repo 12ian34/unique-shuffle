@@ -15,7 +15,7 @@ interface NavbarProps {
 
 export function Navbar({ className }: NavbarProps) {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { session, signOut } = useAuth()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const navLinksRef = useRef<HTMLDivElement>(null)
   const [showLeftIndicator, setShowLeftIndicator] = useState(false)
@@ -166,7 +166,8 @@ export function Navbar({ className }: NavbarProps) {
 
         {/* Sign in/out button */}
         <div className='flex items-center ml-2 flex-shrink-0'>
-          {user ? (
+          {/* Check session directly instead of derived user */}
+          {session ? (
             <Link
               href='/profile'
               className={cn(

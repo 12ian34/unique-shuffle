@@ -1,37 +1,40 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import supabase from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function DebugPage() {
-  const { user, session, isLoading } = useAuth()
-  const [supabaseInfo, setSupabaseInfo] = useState<any>(null)
+  const { session, supabase, isLoading } = useAuth()
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   const checkSupabase = async () => {
+    if (!session?.user) {
+      setDebugInfo('User not authenticated.')
+      return
+    }
+
     try {
-      // Test Supabase connection
-      const response = await fetch('/api/debug', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      // Check for direct connection
-      const { data: directData, error: directError } = await supabase
+      // Example: Fetch user data using the client from context
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('count(*)', { count: 'exact' })
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-      setSupabaseInfo({
-        apiResponse: await response.json(),
-        directData,
-        directError: directError?.message,
-      })
+      if (userError) throw userError
+
+      // Add any other debug fetching logic here...
+      const combinedInfo = {
+        session,
+        userData,
+        // Add more debug data as needed
+      }
+
+      setDebugInfo(combinedInfo)
     } catch (error) {
-      setSupabaseInfo({ error: (error as Error).message })
+      setDebugInfo({ error: (error as Error).message })
     }
   }
 
@@ -51,18 +54,9 @@ export default function DebugPage() {
                 <strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}
               </p>
               <p>
-                <strong>Logged in:</strong> {user ? 'Yes' : 'No'}
+                <strong>Logged in:</strong> {session ? 'Yes' : 'No'}
               </p>
             </div>
-
-            {user && (
-              <div>
-                <h3 className='font-medium'>User Info:</h3>
-                <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-40'>
-                  {JSON.stringify(user, null, 2)}
-                </pre>
-              </div>
-            )}
 
             {session && (
               <div>
@@ -83,11 +77,11 @@ export default function DebugPage() {
 
             <Button onClick={checkSupabase}>Test Supabase Connection</Button>
 
-            {supabaseInfo && (
+            {debugInfo && (
               <div>
                 <h3 className='font-medium'>Supabase Connection Test:</h3>
                 <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-60'>
-                  {JSON.stringify(supabaseInfo, null, 2)}
+                  {JSON.stringify(debugInfo, null, 2)}
                 </pre>
               </div>
             )}

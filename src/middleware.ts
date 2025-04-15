@@ -15,7 +15,8 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name) {
-          return request.cookies.get(name)?.value
+          const value = request.cookies.get(name)?.value
+          return value
         },
         set(name, value, options) {
           response.cookies.set({
@@ -52,6 +53,6 @@ export const config = {
      * - public/* (public files)
      * - api/* (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/|api/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 }

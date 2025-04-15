@@ -5,13 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
-import supabase from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { formatDate, generateRandomString } from '@/lib/utils'
 import { DbShuffle, DbAchievement, UserProfile } from '@/types'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/protected-route'
 import { Loader2, Pencil, X, Check, Copy, Share2 } from 'lucide-react'
 import { MAX_USERNAME_LENGTH } from '@/lib/constants'
@@ -23,7 +22,7 @@ import { trackEvent } from '@/lib/analytics'
 export default function ProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user: authUser, signOut } = useAuth()
+  const { session, supabase, signOut, isLoading: isAuthLoading } = useAuth()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
   const [userAchievements, setUserAchievements] = useState<DbAchievement[]>([])
@@ -42,151 +41,81 @@ export default function ProfilePage() {
   const { theme, setTheme } = useTheme()
 
   useEffect(() => {
-    async function fetchProfileData() {
+    const fetchProfile = async () => {
+      if (!session?.user) {
+        setIsLoading(false)
+        router.replace('/auth')
+        return
+      }
+
       setIsLoading(true)
-      setError(null)
-
       try {
-        if (!authUser) {
-          // Redirect to auth page if not logged in
-          router.push('/auth')
-          return
-        }
-
-        // Ensure we have a valid user ID
-        if (!authUser.id) {
-          console.error('Invalid user ID')
-          setError('Invalid user ID. Please sign out and sign in again.')
-          return
-        }
-
-        // Fetch user profile - fixed query with proper headers
-        const { data: userData, error: userError } = await supabase
+        // Fetch base user profile data
+        let {
+          data: userData,
+          error: userError,
+          status,
+        } = await supabase
           .from('users')
-          .select('*')
-          .eq('id', authUser.id)
+          // .select(`*, achievements(count), shuffles(count) filter (shuffles.is_saved eq true)`) // Revert complex select
+          .select('*') // Select base user fields
+          .eq('id', session.user.id)
           .single()
 
-        if (userError) {
-          console.error('Error fetching user profile:', userError)
-
-          // If the error is that the user profile doesn't exist yet
-          if (userError.code === 'PGRST116' || userError.message.includes('no rows')) {
-            // Profile doesn't exist yet, attempt to create it
-            setIsCreatingProfile(true)
-            const username =
-              authUser.user_metadata?.username || `user-${authUser.id.substring(0, 8)}`
-
-            const { error: insertError } = await supabase.from('users').insert({
-              id: authUser.id,
-              username,
-              email: authUser.email,
-              total_shuffles: 0,
-              shuffle_streak: 0,
-              created_at: new Date().toISOString(),
-            })
-
-            if (insertError) {
-              console.error('Error creating user profile:', insertError)
-              setError('Error creating your profile. Please refresh or try again later.')
-              return
-            }
-
-            // Fetch the newly created profile
-            const { data: newProfile, error: refetchError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', authUser.id)
-              .single()
-
-            if (refetchError) {
-              console.error('Error fetching newly created profile:', refetchError)
-              setError(
-                'Your profile was created but there was an error loading it. Please refresh the page.'
-              )
-              return
-            }
-
-            setUser({
-              ...newProfile,
-              achievementCount: 0,
-              savedShuffleCount: 0,
-            })
-
-            setIsCreatingProfile(false)
-            toast({
-              title: 'profile created',
-              description: 'your profile has been successfully created!',
-            })
-            return
-          } else {
-            setError('Error loading your profile. Please refresh or try again later.')
-            return
-          }
+        if (userError && status !== 406) {
+          // Handle profile not found or other errors
+          // (You might want to add logic here to create a profile if it doesn't exist)
+          throw userError
         }
 
         if (userData) {
-          // Fetch achievements for counting unique types
-          const { data: achievementRecords } = await supabase
+          // Fetch achievement count
+          const { count: achievementCount, error: achievementError } = await supabase
             .from('achievements')
-            .select('achievement_id')
-            .eq('user_id', authUser.id)
+            .select('achievement_id', { count: 'exact', head: true })
+            .eq('user_id', session.user.id)
 
-          // Count unique achievement types
-          const uniqueAchievements = new Set()
-          if (achievementRecords) {
-            achievementRecords.forEach((a) => uniqueAchievements.add(a.achievement_id))
+          if (achievementError) {
+            console.error('Error fetching achievement count:', achievementError)
+            // Decide how to handle this - maybe default to 0?
           }
-          const achievementCount = uniqueAchievements.size
 
-          // Fetch saved shuffle count
-          const { count: savedShuffleCount } = await supabase
+          // Fetch saved shuffles count
+          const { count: savedShuffleCount, error: shuffleCountError } = await supabase
             .from('shuffles')
             .select('id', { count: 'exact', head: true })
-            .eq('user_id', authUser.id)
+            .eq('user_id', session.user.id)
             .eq('is_saved', true)
 
-          setUser({
+          if (shuffleCountError) {
+            console.error('Error fetching saved shuffle count:', shuffleCountError)
+            // Decide how to handle this - maybe default to 0?
+          }
+
+          // Combine into UserProfile
+          const userProfile: UserProfile = {
             ...userData,
             achievementCount: achievementCount || 0,
             savedShuffleCount: savedShuffleCount || 0,
-          })
-
-          // Fetch saved shuffles
-          const { data: shuffles } = await supabase
-            .from('shuffles')
-            .select('*')
-            .eq('user_id', authUser.id)
-            .eq('is_saved', true)
-            .order('created_at', { ascending: false })
-            .limit(5)
-
-          setSavedShuffles(shuffles || [])
-
-          // Fetch recent achievement records with all details
-          const { data: recentAchievements } = await supabase
-            .from('achievements')
-            .select('*')
-            .eq('user_id', authUser.id)
-            .order('achieved_at', { ascending: false })
-            .limit(5)
-
-          setUserAchievements(recentAchievements || [])
+          }
+          setUser(userProfile)
         }
       } catch (error) {
-        console.error('Error fetching profile data:', error)
-        setError('An unexpected error occurred. Please try again later.')
+        console.error('Error loading user data!', error)
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
     }
 
-    if (authUser) {
-      fetchProfileData()
+    if (!isAuthLoading && session?.user) {
+      fetchProfile()
+    } else if (!isAuthLoading && !session?.user) {
+      setIsLoading(false)
+      router.replace('/auth')
     }
-  }, [router, authUser, toast])
+  }, [session, supabase, isAuthLoading, router])
 
-  // Fetch friends and pending requests
   useEffect(() => {
     async function fetchFriendsData() {
       try {
@@ -261,7 +190,7 @@ export default function ProfilePage() {
     if (user) {
       fetchFriendsData()
     }
-  }, [user])
+  }, [user, supabase])
 
   const handleSendFriendRequest = async () => {
     if (!friendUsername.trim()) return
@@ -535,12 +464,16 @@ export default function ProfilePage() {
     }
   }
 
-  // Add a useEffect to track page view
+  // Track page view
   useEffect(() => {
-    trackEvent('profile_page_viewed')
-  }, [])
+    if (!isAuthLoading && user) {
+      trackEvent('profile_page_viewed', {
+        userId: user.id,
+      })
+    }
+  }, [isAuthLoading, user])
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className='flex flex-col items-center justify-center text-center py-12'>
         <Loader2 className='mr-2 h-8 w-8 animate-spin mb-4' />

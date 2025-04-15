@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import supabase from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { formatDate, generateRandomString } from '@/lib/utils'
 import { DbShuffle } from '@/types'
@@ -15,6 +15,7 @@ import { trackEvent } from '@/lib/analytics'
 export default function SavedShufflesPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { session, supabase, isLoading: isAuthLoading } = useAuth()
   const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [sharingInProgress, setSharingInProgress] = useState<Record<string, boolean>>({})
@@ -22,29 +23,21 @@ export default function SavedShufflesPage() {
 
   useEffect(() => {
     async function fetchSavedShuffles() {
+      if (!session?.user) return
+
       setIsLoading(true)
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-
-        if (!user) {
-          // Redirect to auth page if not logged in
-          router.push('/auth')
-          return
-        }
-
         // Track saved shuffles page view (funnel start)
         trackEvent('saved_shuffles_page_viewed', {
-          userId: user.id,
+          userId: session.user.id,
         })
 
         // Fetch all saved shuffles
         const { data } = await supabase
           .from('shuffles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', session.user.id)
           .eq('is_saved', true)
           .order('created_at', { ascending: false })
 
@@ -56,13 +49,20 @@ export default function SavedShufflesPage() {
         })
       } catch (error) {
         console.error('Error fetching saved shuffles:', error)
+        setSavedShuffles([])
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchSavedShuffles()
-  }, [router])
+    // Only fetch if auth is not loading and a session exists
+    if (!isAuthLoading && session?.user) {
+      fetchSavedShuffles()
+    } else if (!isAuthLoading && !session?.user) {
+      // If auth is loaded and there's no user, stop loading
+      setIsLoading(false)
+    }
+  }, [session, isAuthLoading, supabase])
 
   const handleShareShuffle = async (shuffleId: string) => {
     // Track share intent (funnel step)
@@ -308,8 +308,29 @@ export default function SavedShufflesPage() {
     router.push(`/shared/${shuffleId}`)
   }
 
-  if (isLoading) {
+  // Track page view
+  useEffect(() => {
+    if (!isAuthLoading) {
+      // Track only when auth state is known
+      trackEvent('saved_shuffles_viewed', {
+        shuffleCount: savedShuffles.length,
+      })
+    }
+  }, [isAuthLoading, savedShuffles.length])
+
+  if (isLoading || isAuthLoading) {
     return <div className='text-center py-12'>loading saved shuffles...</div>
+  }
+
+  if (!session?.user) {
+    return (
+      <div className='text-center py-12 bg-muted/20 rounded-md'>
+        <p className='text-muted-foreground mb-4'>
+          you need to be logged in to view your saved shuffles.
+        </p>
+        <Button onClick={() => router.push('/auth')}>login</Button>
+      </div>
+    )
   }
 
   return (

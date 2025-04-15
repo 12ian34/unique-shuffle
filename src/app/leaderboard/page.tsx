@@ -5,11 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { Button } from '@/components/ui/button'
-import supabase from '@/lib/supabase'
 import { LeaderboardEntry } from '@/types'
 import { Fallback } from '@/components/ui/fallback'
 import { createNetworkError, handleError } from '@/lib/errors'
 import ErrorBoundary from '@/components/error-boundary'
+import { trackEvent } from '@/lib/analytics'
+
+// Map frontend tab values to API sort parameters
+const sortMapping = {
+  total: 'total_shuffles',
+  achievements: 'achievementCount',
+  streak: 'shuffle_streak',
+}
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -24,54 +31,81 @@ export default function LeaderboardPage() {
     setError(null)
 
     try {
-      // Determine sort field based on current tab
-      const sortField =
-        currentTab === 'total'
-          ? 'total_shuffles'
-          : currentTab === 'achievements'
-          ? 'achievementCount'
-          : 'shuffle_streak'
+      const sortBy = sortMapping[currentTab]
+      const params = new URLSearchParams({
+        sort: sortBy,
+        friendsOnly: String(showFriendsOnly),
+        // Add page param if implementing pagination later
+        // page: '1',
+      })
 
-      const response = await fetch(
-        `/api/leaderboard?sort=${sortField}&friendsOnly=${showFriendsOnly}`
-      )
+      const response = await fetch(`/api/leaderboard?${params.toString()}`)
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch leaderboard data: ${response.status}`)
+        console.error('Error fetching leaderboard data:', response.statusText)
+        // Try to parse error response from API
+        let errorData: any = { message: 'Failed to fetch leaderboard data' }
+        try {
+          errorData = await response.json()
+        } catch (parseError) {
+          // Ignore if response is not JSON
+        }
+        const networkError = createNetworkError(errorData.message || response.statusText, {
+          statusCode: response.status,
+          url: response.url,
+        })
+        // Wrap the custom AppError message in a standard Error object
+        setError(new Error(networkError.message))
+        setLeaderboard([])
+      } else {
+        const result = await response.json()
+        setLeaderboard(result.data as LeaderboardEntry[])
       }
-
-      const result = await response.json()
-
-      if (result.data) {
-        setLeaderboard(result.data)
-      } else if (result.error) {
-        throw new Error(result.error)
-      }
-    } catch (error) {
-      const appError = createNetworkError(
-        'Unable to load leaderboard data. Please try again.',
-        { originalError: error },
-        true,
-        () => fetchLeaderboard()
+    } catch (err) {
+      console.error('Unexpected error fetching leaderboard:', err)
+      const fetchError = createNetworkError(
+        err instanceof Error ? err.message : 'An unknown fetch error occurred',
+        { originalError: err }
       )
-      handleError(appError)
-      setError(error instanceof Error ? error : new Error('Unknown error occurred'))
+      // Wrap the custom AppError message in a standard Error object
+      setError(new Error(fetchError.message))
+      setLeaderboard([])
     } finally {
       setIsLoading(false)
     }
-  }, [currentTab, showFriendsOnly]) // Dependencies for the callback
+  }, [currentTab, showFriendsOnly]) // Depend on currentTab and showFriendsOnly
 
   useEffect(() => {
     fetchLeaderboard()
-  }, [fetchLeaderboard]) // fetchLeaderboard is now a dependency
+    // Track tab view
+    trackEvent('leaderboard_tab_view', {
+      tab: currentTab,
+      filter: showFriendsOnly ? 'friends' : 'all',
+    })
+  }, [fetchLeaderboard, currentTab, showFriendsOnly]) // Add currentTab and showFriendsOnly as dependencies
 
   const handleTabChange = (value: string) => {
-    setCurrentTab(value as 'total' | 'achievements' | 'streak')
+    const newTab = value as 'total' | 'achievements' | 'streak'
+    setCurrentTab(newTab)
+    // Tracking moved to useEffect to capture initial load and subsequent changes
   }
 
   const toggleFriendsOnly = () => {
-    setShowFriendsOnly(!showFriendsOnly)
+    setShowFriendsOnly((prev) => {
+      const newState = !prev
+      trackEvent('leaderboard_filter_toggle', { filter: newState ? 'friends' : 'all' })
+      return newState
+    })
+    // Fetch is triggered by useEffect dependency change
   }
+
+  // Map tab value to the display name used in renderLeaderboard's header
+  const sortFieldMap: Record<typeof currentTab, keyof LeaderboardEntry> = {
+    total: 'totalShuffles',
+    achievements: 'achievementCount',
+    streak: 'shuffleStreak',
+  }
+  const currentSortField = sortFieldMap[currentTab]
 
   return (
     <div className='space-y-8'>
@@ -83,6 +117,7 @@ export default function LeaderboardPage() {
                 variant={showFriendsOnly ? 'default' : 'outline'}
                 onClick={toggleFriendsOnly}
                 className='whitespace-nowrap'
+                aria-pressed={showFriendsOnly} // Add aria-pressed for accessibility
               >
                 {showFriendsOnly ? 'friends' : 'all users'}
               </Button>
@@ -102,10 +137,11 @@ export default function LeaderboardPage() {
                 </TabsTrigger>
               </ScrollableTabsList>
 
+              {/* Pass currentSortField to renderLeaderboard */}
               <TabsContent value='total'>
                 {renderLeaderboard(
                   leaderboard,
-                  'totalShuffles',
+                  currentSortField,
                   isLoading,
                   error,
                   fetchLeaderboard
@@ -115,7 +151,7 @@ export default function LeaderboardPage() {
               <TabsContent value='achievements'>
                 {renderLeaderboard(
                   leaderboard,
-                  'achievementCount',
+                  currentSortField,
                   isLoading,
                   error,
                   fetchLeaderboard
@@ -125,7 +161,7 @@ export default function LeaderboardPage() {
               <TabsContent value='streak'>
                 {renderLeaderboard(
                   leaderboard,
-                  'shuffleStreak',
+                  currentSortField,
                   isLoading,
                   error,
                   fetchLeaderboard
@@ -141,7 +177,8 @@ export default function LeaderboardPage() {
 
 function renderLeaderboard(
   data: LeaderboardEntry[],
-  sortField: keyof LeaderboardEntry,
+  // Renamed sortField to displayField for clarity, as sorting is done by API
+  displayField: keyof LeaderboardEntry,
   isLoading: boolean,
   error: Error | null,
   retryFunction: () => void
@@ -154,7 +191,8 @@ function renderLeaderboard(
     return (
       <Fallback
         title='Unable to load leaderboard'
-        message='There was a problem loading the leaderboard data.'
+        // Display more specific error message if available
+        message={error.message || 'There was a problem loading the leaderboard data.'}
         onRetry={retryFunction}
       />
     )
@@ -163,17 +201,17 @@ function renderLeaderboard(
   if (data.length === 0) {
     return (
       <div className='text-center py-8 text-muted-foreground'>
-        No data available for this leaderboard yet.
+        No data available for this leaderboard view. Try changing the filter.
       </div>
     )
   }
 
-  // Sort the data based on the selected field
-  const sortedData = [...data].sort((a, b) => {
-    const valueA = a[sortField] as number
-    const valueB = b[sortField] as number
-    return valueB - valueA
-  })
+  // Remove client-side sorting, API handles sorting now
+  // const sortedData = [...data].sort((a, b) => {
+  //   const valueA = a[sortField] as number
+  //   const valueB = b[sortField] as number
+  //   return valueB - valueA
+  // })
 
   return (
     <div className='overflow-x-auto'>
@@ -183,16 +221,18 @@ function renderLeaderboard(
             <th className='text-left py-3 px-2'>rank</th>
             <th className='text-left py-3 px-2'>username</th>
             <th className='text-right py-3 px-2'>
-              {sortField === 'totalShuffles'
+              {/* Determine header based on displayField */}
+              {displayField === 'totalShuffles'
                 ? 'shuffles'
-                : sortField === 'achievementCount'
+                : displayField === 'achievementCount'
                 ? 'achievements'
                 : 'streak'}
             </th>
           </tr>
         </thead>
         <tbody>
-          {sortedData.map((entry, index) => (
+          {/* Use data directly as it's pre-sorted by API */}
+          {data.map((entry, index) => (
             <tr key={entry.userId} className='border-b hover:bg-muted/50'>
               <td className='py-3 px-2 text-muted-foreground'>{index + 1}</td>
               <td className='py-3 px-2 font-medium'>
@@ -204,9 +244,10 @@ function renderLeaderboard(
                 </a>
               </td>
               <td className='py-3 px-2 text-right'>
-                {sortField === 'totalShuffles'
+                {/* Display data based on displayField */}
+                {displayField === 'totalShuffles'
                   ? entry.totalShuffles
-                  : sortField === 'achievementCount'
+                  : displayField === 'achievementCount'
                   ? entry.achievementCount
                   : entry.shuffleStreak}
               </td>

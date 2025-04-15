@@ -1,22 +1,22 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import supabase from '@/lib/supabase'
-import { User, Session } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
+import { User, Session, SupabaseClient, AuthChangeEvent } from '@supabase/supabase-js'
 import { useAuthTracking } from '@/hooks/use-auth-tracking'
 import { trackEvent } from '@/lib/analytics'
+import { Database } from '@/types/supabase'
 
 type AuthContextType = {
-  user: User | null
   session: Session | null
+  supabase: SupabaseClient<Database, 'public'>
   isLoading: boolean
   signIn: (
     email: string,
     password: string
   ) => Promise<{
     error: Error | null
-    data: { user: User | null; session: Session | null } | null
   }>
   signUp: (
     email: string,
@@ -24,7 +24,6 @@ type AuthContextType = {
     username: string
   ) => Promise<{
     error: Error | null
-    data: { user: User | null; session: Session | null } | null
   }>
   signOut: () => Promise<void>
 }
@@ -32,12 +31,18 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [supabase] = useState(() =>
+    createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  )
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Track user auth state in PostHog
+  const user = useMemo(() => session?.user ?? null, [session])
+
   useAuthTracking(
     !!user,
     user?.id,
@@ -50,121 +55,115 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
-    // Check active session
-    const getSession = async () => {
-      setIsLoading(true)
-      try {
-        const {
-          data: { session: activeSession },
-        } = await supabase.auth.getSession()
-        setSession(activeSession)
-        setUser(activeSession?.user || null)
-      } catch (error) {
-        console.error('Error checking session:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+    setIsLoading(true)
 
-    getSession()
-
-    // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      setSession(currentSession)
-      setUser(currentSession?.user || null)
+    } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, currentSession: Session | null) => {
+        setSession(currentSession)
+        setIsLoading(false)
 
-      if (event === 'SIGNED_IN') {
-        // Track sign in event
-        trackEvent('user_signed_in', {
-          method: 'email',
-          userId: currentSession?.user?.id,
-        })
-      } else if (event === 'SIGNED_OUT') {
-        // Track sign out event
-        trackEvent('user_signed_out')
-      } else if (event === 'USER_UPDATED') {
-        // Track user update event
-        trackEvent('user_updated', {
-          userId: currentSession?.user?.id,
-        })
+        if (event === 'SIGNED_IN') {
+          trackEvent('user_signed_in', {
+            method: 'email',
+            userId: currentSession?.user?.id,
+          })
+        } else if (event === 'SIGNED_OUT') {
+          trackEvent('user_signed_out')
+        } else if (event === 'INITIAL_SESSION') {
+          setIsLoading(false)
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Session updated silently
+        } else if (event === 'USER_UPDATED') {
+          trackEvent('user_updated', {
+            userId: currentSession?.user?.id,
+          })
+        }
       }
-    })
+    )
 
     return () => {
-      subscription.unsubscribe()
+      subscription?.unsubscribe()
     }
-  }, [])
+  }, [supabase])
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
 
-      if (error) throw error
+        if (error) throw error
 
-      return { data, error: null }
-    } catch (error: any) {
-      console.error('Error signing in:', error)
-      // Track failed sign in attempt
-      trackEvent('signin_error', {
-        error: error.message,
-        email: email, // Safe to track for errors
-      })
-      return { data: null, error }
-    }
-  }
+        router.refresh()
 
-  const signUp = async (email: string, password: string, username: string) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username },
-          emailRedirectTo: `${window.location.origin}/auth`,
-        },
-      })
+        return { error: null }
+      } catch (error: any) {
+        console.error('Error signing in:', error)
+        trackEvent('signin_error', {
+          error: error.message,
+          email: email,
+        })
+        return { error }
+      }
+    },
+    [supabase, router]
+  )
 
-      if (error) throw error
+  const signUp = useCallback(
+    async (email: string, password: string, username: string) => {
+      try {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { username },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
 
-      // Track successful signup
-      trackEvent('user_signed_up', {
-        username,
-      })
+        if (error) throw error
 
-      return { data, error: null }
-    } catch (error: any) {
-      console.error('Error signing up:', error)
-      // Track failed signup attempt
-      trackEvent('signup_error', {
-        error: error.message,
-        email: email, // Safe to track for errors
-      })
-      return { data: null, error }
-    }
-  }
+        trackEvent('user_signed_up', {
+          username,
+        })
 
-  const signOut = async () => {
+        return { error: null }
+      } catch (error: any) {
+        console.error('Error signing up:', error)
+        trackEvent('signup_error', {
+          error: error.message,
+          email: email,
+        })
+        return { error }
+      }
+    },
+    [supabase]
+  )
+
+  const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut()
-      router.push('/auth')
+      router.refresh()
     } catch (error) {
       console.error('Error signing out:', error)
     }
-  }
+  }, [supabase, router])
 
-  const value = {
-    user,
-    session,
-    isLoading,
-    signIn,
-    signUp,
-    signOut,
-  }
+  const value = useMemo(
+    () => ({
+      session,
+      supabase,
+      isLoading,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [session, supabase, isLoading, signIn, signUp, signOut]
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -5,18 +5,69 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { achievements } from '@/lib/achievements'
-import supabase from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { formatRelativeDate } from '@/lib/utils'
 import { DbAchievement, Achievement } from '@/types'
 import { AchievementShare } from '@/components/achievement-share'
 import { Badge } from '@/components/ui/badge'
 import { Check, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
+import { trackEvent } from '@/lib/analytics'
 
 export default function AchievementsPage() {
+  const router = useRouter()
+  const { session, supabase, isLoading: isAuthLoading } = useAuth()
   const [userAchievements, setUserAchievements] = useState<DbAchievement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [earnedFilter, setEarnedFilter] = useState<boolean | null>(null)
+  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const fetchEarnedAchievements = async () => {
+      if (!session?.user) {
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('achievements')
+          .select('achievement_id')
+          .eq('user_id', session.user.id)
+
+        if (error) {
+          console.error('Error fetching earned achievements:', error)
+          setEarnedIds(new Set())
+        } else {
+          setEarnedIds(new Set(data.map((a) => a.achievement_id)))
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching achievements:', err)
+        setEarnedIds(new Set())
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (!isAuthLoading && session?.user) {
+      fetchEarnedAchievements()
+    } else if (!isAuthLoading && !session?.user) {
+      setIsLoading(false)
+      setEarnedIds(new Set())
+    }
+  }, [session, supabase, isAuthLoading])
+
+  useEffect(() => {
+    if (!isAuthLoading) {
+      trackEvent('achievements_page_viewed', {
+        isAuthenticated: !!session,
+        earnedCount: earnedIds.size,
+      })
+    }
+  }, [isAuthLoading, session, earnedIds.size])
 
   useEffect(() => {
     async function fetchUserAchievements() {
@@ -44,7 +95,7 @@ export default function AchievementsPage() {
     }
 
     fetchUserAchievements()
-  }, [])
+  }, [supabase])
 
   // Find achievement details from the list of available achievements
   const getUserAchievementDetails = (achievementId: string) => {
@@ -134,6 +185,27 @@ export default function AchievementsPage() {
   const resetFilters = () => {
     setCategoryFilter(null)
     setEarnedFilter(null)
+  }
+
+  const earnedCount = earnedIds.size
+  const totalCount = achievements.length
+
+  if (isLoading || isAuthLoading) {
+    return (
+      <div className='text-center py-12 bg-muted/20 rounded-md'>
+        <p className='text-muted-foreground mb-4'>Loading...</p>
+      </div>
+    )
+  }
+
+  // Handle not logged in state
+  if (!session?.user) {
+    return (
+      <div className='text-center py-12 bg-muted/20 rounded-md'>
+        <p className='text-muted-foreground mb-4'>login to view your earned achievements.</p>
+        <Button onClick={() => router.push('/auth')}>login</Button>
+      </div>
+    )
   }
 
   return (

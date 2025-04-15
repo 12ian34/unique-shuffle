@@ -1,128 +1,131 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+} from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import supabase from '@/lib/supabase'
-import { Navbar } from './ui/navbar'
+import { UserStats } from '@/types'
 import { GlobalShuffleCounter } from './global-shuffle-counter'
+import { STATS_REFRESH_INTERVAL } from '@/lib/constants'
 
-interface UserStats {
-  userShuffleCount: number
-  userStreak: number
+interface UserStatsContextType {
+  userStats: UserStats | null
   isLoading: boolean
+  refreshUserStats: () => void
 }
 
-const UserStatsContext = createContext<UserStats>({
-  userShuffleCount: 0,
-  userStreak: 0,
-  isLoading: true,
-})
+const UserStatsContext = createContext<UserStatsContextType | undefined>(undefined)
 
-export const useUserStats = () => useContext(UserStatsContext)
-
-// Create a function at module scope to refresh user stats
-let refreshUserStatsFunction: (() => void) | null = null
-
-export function refreshUserStats() {
-  if (refreshUserStatsFunction) {
-    refreshUserStatsFunction()
-  }
-}
+// Create a refresh function at module scope
+let refreshFunction: (() => void) | null = null
 
 export function UserStatsProvider({ children }: { children: ReactNode }) {
-  const [stats, setStats] = useState<UserStats>({
-    userShuffleCount: 0,
-    userStreak: 0,
-    isLoading: true,
-  })
-  const { user } = useAuth()
+  const { session, supabase } = useAuth()
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Function to fetch user stats - wrapped in useCallback
   const fetchUserStats = useCallback(async () => {
-    if (!user) {
-      setStats({
-        userShuffleCount: 0,
-        userStreak: 0,
-        isLoading: false,
-      })
-      return
+    if (!session?.user) {
+      setUserStats(null)
+      setIsLoading(false)
+      return // Exit if user is not logged in
     }
 
+    setIsLoading(true) // Set loading true before fetch
     try {
       const { data, error } = await supabase
         .from('users')
         .select('total_shuffles, shuffle_streak, last_shuffle_date')
-        .eq('id', user.id)
-        .single()
+        .eq('id', session.user.id)
+        .single<UserStats>() // Use the UserStats type here
 
       if (error) {
-        console.error('Error fetching user stats:', error)
-        setStats({
-          userShuffleCount: 0,
-          userStreak: 0,
-          isLoading: false,
-        })
-        return
+        console.error('[UserStatsProvider] Error fetching user stats:', error)
+        setUserStats(null)
+      } else {
+        setUserStats(data)
       }
-
-      setStats({
-        userShuffleCount: data?.total_shuffles || 0,
-        userStreak: data?.shuffle_streak || 0,
-        isLoading: false,
-      })
-    } catch (error) {
-      console.error('Error in fetch user stats:', error)
-      setStats({
-        userShuffleCount: 0,
-        userStreak: 0,
-        isLoading: false,
-      })
+    } catch (err) {
+      // Catch potential errors during the async operation itself
+      console.error('[UserStatsProvider] Exception during fetchUserStats:', err)
+      setUserStats(null)
+    } finally {
+      setIsLoading(false)
     }
-  }, [user])
+  }, [session, supabase]) // Add supabase to dependencies
 
-  // Register the refresh function
+  // Register the refresh function at the module level
   useEffect(() => {
-    refreshUserStatsFunction = fetchUserStats
+    refreshFunction = fetchUserStats
     return () => {
-      refreshUserStatsFunction = null
+      refreshFunction = null // Clean up on unmount
     }
   }, [fetchUserStats])
 
+  // Initial fetch and periodic refresh
   useEffect(() => {
-    // Listen for stats update events
+    fetchUserStats() // Initial fetch
+
+    // Refresh stats periodically
+    const intervalId = setInterval(fetchUserStats, STATS_REFRESH_INTERVAL)
+
+    // Cleanup interval on unmount or when fetchUserStats changes
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [fetchUserStats]) // Run whenever fetchUserStats changes (which depends on session/supabase)
+
+  // Effect for handling manual trigger events (e.g., after shuffle)
+  useEffect(() => {
     const handleStatsUpdate = (event: CustomEvent) => {
       if (event.detail?.userStats) {
-        const { userStats } = event.detail
-        setStats((prevStats) => ({
-          ...prevStats,
-          userShuffleCount: userStats.total_shuffles || 0,
-          userStreak: userStats.shuffle_streak || 0,
-          isLoading: false,
-        }))
+        setUserStats(event.detail.userStats)
       }
     }
-
-    // Add event listener
     window.addEventListener('statsUpdate', handleStatsUpdate as EventListener)
 
-    // Initial fetch
-    fetchUserStats()
-
-    // Clean up on unmount
+    // Cleanup listener on unmount
     return () => {
       window.removeEventListener('statsUpdate', handleStatsUpdate as EventListener)
     }
-  }, [user, fetchUserStats])
+  }, []) // Empty dependency array: runs only once on mount
+
+  const value = {
+    userStats,
+    isLoading,
+    refreshUserStats: fetchUserStats, // Expose the fetch function
+  }
 
   return (
-    <UserStatsContext.Provider value={stats}>
+    <UserStatsContext.Provider value={value}>
       {children}
       <div className='border-t border-border px-4 py-1 text-sm bg-card'>
         <GlobalShuffleCounter
-          userShuffleCount={stats.userShuffleCount}
-          userStreak={stats.userStreak}
+          userShuffleCount={userStats?.total_shuffles || 0}
+          userStreak={userStats?.shuffle_streak || 0}
         />
       </div>
     </UserStatsContext.Provider>
   )
+}
+
+// Hook to use the context
+export function useUserStats() {
+  const context = useContext(UserStatsContext)
+  if (context === undefined) {
+    throw new Error('useUserStats must be used within a UserStatsProvider')
+  }
+  return context
+}
+
+// Global function to trigger refresh
+export function refreshUserStats() {
+  if (refreshFunction) {
+    refreshFunction()
+  }
 }
