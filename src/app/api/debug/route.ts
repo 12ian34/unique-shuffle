@@ -26,7 +26,6 @@ export async function GET(request: Request) {
       userError: userError?.message,
     })
   } catch (error) {
-    console.error('API debug error:', error)
     const appError = createError(
       'Debug API error',
       ErrorType.UNKNOWN,

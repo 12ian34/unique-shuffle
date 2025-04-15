@@ -83,9 +83,6 @@ export function logError(error: AppError): void {
     timestamp: error.timestamp,
     stack: new Error().stack,
   })
-
-  // TODO: Send to error monitoring service like Sentry
-  // If we had Sentry or similar configured, we would send the error there
 }
 
 // Display user-friendly error toast

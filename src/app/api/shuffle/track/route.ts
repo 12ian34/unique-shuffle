@@ -94,7 +94,6 @@ export async function POST(request: Request) {
       const { data: cookieUser, error: cookieError } = await supabase.auth.getUser()
 
       if (cookieError) {
-        console.error('❌ Cookie auth failed:', cookieError)
         const error = createAuthError('Cookie authentication failed', {
           cookieError: cookieError.message,
         })
@@ -138,7 +137,6 @@ export async function POST(request: Request) {
       .single()
 
     if (userQueryError && userQueryError.code !== 'PGRST116') {
-      console.error('Error fetching user data from database:', userQueryError)
       const error = createDatabaseError('Error fetching user data from database', {
         originalError: userQueryError,
         userId: user.id,
@@ -162,7 +160,6 @@ export async function POST(request: Request) {
       .single()
 
     if (shuffleError) {
-      console.error('Error saving shuffle to database:', shuffleError)
       const error = createDatabaseError('Failed to save shuffle to database', {
         originalError: shuffleError,
         userId: user.id,
@@ -226,7 +223,6 @@ export async function POST(request: Request) {
         .eq('id', user.id)
 
       if (updateError) {
-        console.error('Error updating user stats:', updateError)
         const error = createDatabaseError('Failed to update user stats', {
           originalError: updateError,
           userId: user.id,
@@ -268,7 +264,6 @@ export async function POST(request: Request) {
         { headers }
       )
     } else {
-      console.error('User profile not found in database:', user.id)
       const error = createError(
         'User profile not found',
         ErrorType.DATABASE,
@@ -279,7 +274,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error }, { status: 404, headers })
     }
   } catch (error) {
-    console.error('Error tracking shuffle:', error)
     const appError = createError(
       'Failed to track shuffle',
       ErrorType.SHUFFLE,

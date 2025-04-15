@@ -101,7 +101,6 @@ export async function GET(request: Request) {
       { headers }
     )
   } catch (error) {
-    console.error('Error verifying shuffle:', error)
     const appError = createError(
       'Failed to verify shuffle',
       ErrorType.SHUFFLE,

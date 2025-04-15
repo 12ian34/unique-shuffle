@@ -110,7 +110,6 @@ export async function POST(request: Request) {
       shuffle: updatedShuffle,
     })
   } catch (error) {
-    console.error('Error saving shuffle:', error)
     const appError = createError(
       'Failed to save shuffle',
       ErrorType.SHUFFLE,

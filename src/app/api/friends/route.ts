@@ -93,7 +93,6 @@ export async function GET(request: Request) {
       .eq('status', status)
 
     if (requesterError) {
-      console.error('Error querying as requester:', requesterError)
       return NextResponse.json(
         {
           error: createError(
@@ -119,7 +118,6 @@ export async function GET(request: Request) {
       .eq('status', status)
 
     if (recipientError) {
-      console.error('Error querying as recipient:', recipientError)
       return NextResponse.json(
         {
           error: createError(
@@ -161,7 +159,6 @@ export async function GET(request: Request) {
       .in('id', Array.from(userIdsToLookup))
 
     if (userError) {
-      console.error('Error fetching user details:', userError)
       return NextResponse.json(
         {
           error: createError(
@@ -212,7 +209,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ data: formattedFriends })
   } catch (error) {
-    console.error('Error fetching friends:', error)
     const appError = createError(
       'Failed to fetch friends',
       ErrorType.DATABASE,
@@ -355,7 +351,6 @@ export async function POST(request: Request) {
       friendship,
     })
   } catch (error) {
-    console.error('Error creating friend request:', error)
     const appError = createError(
       'Failed to create friend request',
       ErrorType.DATABASE,
@@ -468,7 +463,6 @@ export async function PUT(request: Request) {
       friendship: updatedFriendship,
     })
   } catch (error) {
-    console.error('Error updating friend request:', error)
     const appError = createError(
       'Failed to update friend request',
       ErrorType.DATABASE,

@@ -26,14 +26,6 @@ export function GlobalShuffleCounter({
   userStreak = 0,
 }: GlobalShuffleCounterProps) {
   const [globalCount, setGlobalCount] = useState(initialGlobalCount)
-  const [userCount, setUserCount] = useState(userShuffleCount)
-  const [streak, setStreak] = useState(userStreak)
-
-  // Set initial user count from props and update when props change
-  useEffect(() => {
-    setUserCount(userShuffleCount || 0)
-    setStreak(userStreak || 0)
-  }, [userShuffleCount, userStreak])
 
   // Create a function to fetch all stats from the database
   const fetchAllStats = useCallback(async () => {
@@ -45,12 +37,6 @@ export function GlobalShuffleCounter({
       if (response.ok) {
         const data = await response.json()
         setGlobalCount(data.count)
-
-        // If the API includes user stats, update those too
-        if (data.userStats) {
-          setUserCount(data.userStats.total_shuffles || 0)
-          setStreak(data.userStats.shuffle_streak || 0)
-        }
       }
     } catch (error) {
       console.error('Error fetching shuffle stats:', error)
@@ -73,22 +59,9 @@ export function GlobalShuffleCounter({
     // Set up interval for refreshing
     const intervalId = setInterval(fetchAllStats, STATS_REFRESH_INTERVAL)
 
-    // Listen for stats update events
-    const handleStatsUpdate = (event: CustomEvent) => {
-      if (event.detail?.userStats) {
-        const { userStats } = event.detail
-        setUserCount(userStats.total_shuffles || 0)
-        setStreak(userStats.shuffle_streak || 0)
-      }
-    }
-
-    // Add event listener
-    window.addEventListener('statsUpdate', handleStatsUpdate as EventListener)
-
     // Clean up on unmount
     return () => {
       clearInterval(intervalId)
-      window.removeEventListener('statsUpdate', handleStatsUpdate as EventListener)
     }
   }, [fetchAllStats])
 
@@ -101,12 +74,12 @@ export function GlobalShuffleCounter({
 
       <div className='flex items-center space-x-1'>
         <span className='text-foreground'>your shuffles:</span>
-        <span className='stat-value'>{formatLargeNumber(userCount)}</span>
+        <span className='stat-value'>{formatLargeNumber(userShuffleCount)}</span>
       </div>
 
       <div className='flex items-center space-x-1'>
         <span className='text-foreground'>streak:</span>
-        <span className='stat-value'>{streak}</span>
+        <span className='stat-value'>{userStreak}</span>
       </div>
     </div>
   )

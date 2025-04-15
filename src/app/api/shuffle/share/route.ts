@@ -8,6 +8,7 @@ import {
   createAuthError,
   createValidationError,
 } from '@/lib/errors'
+import { DbShuffle } from '@/types'
 
 // Share a shuffle
 export async function POST(request: Request) {
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
 
     // Use a transaction to ensure all operations succeed or fail together
     let shareCode: string
-    let updatedShuffle: any
+    let updatedShuffle: DbShuffle
     let transactionSuccess = false
 
     // First, attempt to retrieve an existing share_code with a SELECT FOR UPDATE
@@ -192,7 +193,6 @@ export async function POST(request: Request) {
       shuffle: updatedShuffle,
     })
   } catch (error) {
-    console.error('Error sharing shuffle:', error)
     const appError = createError(
       'Failed to share shuffle',
       ErrorType.SHUFFLE,
