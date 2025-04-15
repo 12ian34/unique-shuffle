@@ -73,7 +73,7 @@ const config: Config = {
         },
         'opacity-pulse-subtle': {
           '0%, 100%': {
-            opacity: '0.05',
+            opacity: '0.70',
           },
           '40%': {
             opacity: '1',
