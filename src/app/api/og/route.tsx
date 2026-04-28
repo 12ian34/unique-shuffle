@@ -3,6 +3,7 @@ import { ImageResponse } from 'next/og'
 import { findPatterns } from '@/lib/achievements'
 import supabaseAdmin from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
+import type { Card } from '@/types'
 
 export const runtime = 'edge'
 
@@ -190,16 +191,15 @@ export async function GET(req: NextRequest) {
     const displayCards = shuffle.cards.slice(0, 12)
 
     // Helper function to get card symbol
-    const getCardSymbol = (card: string) => {
-      const suit = card.slice(-1)
-      switch (suit) {
-        case 'H':
+    const getCardSymbol = (card: Card) => {
+      switch (card.suit) {
+        case 'hearts':
           return '♥'
-        case 'D':
+        case 'diamonds':
           return '♦'
-        case 'C':
+        case 'clubs':
           return '♣'
-        case 'S':
+        case 'spades':
           return '♠'
         default:
           return ''
@@ -207,28 +207,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Helper function to get card color
-    const getCardColor = (card: string) => {
-      const suit = card.slice(-1)
-      return suit === 'H' || suit === 'D' ? '#ef4444' : '#000000'
+    const getCardColor = (card: Card) => {
+      return card.color === 'red' ? '#ef4444' : '#000000'
     }
 
     // Helper function to get card value
-    const getCardValue = (card: string) => {
-      const value = card.slice(0, -1)
-      switch (value) {
-        case 'A':
-          return 'A'
-        case 'K':
-          return 'K'
-        case 'Q':
-          return 'Q'
-        case 'J':
-          return 'J'
-        case 'T':
-          return '10'
-        default:
-          return value
-      }
+    const getCardValue = (card: Card) => {
+      return card.rank
     }
 
     return new ImageResponse(
@@ -315,7 +300,7 @@ export async function GET(req: NextRequest) {
                 filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.2))',
               }}
             >
-              {displayCards.map((card: string, index: number) => (
+              {displayCards.map((card: Card, index: number) => (
                 <div
                   key={index}
                   style={{

@@ -1,5 +1,19 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
+type DbSuit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
+type DbRank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K'
+type DbColor = 'red' | 'black'
+
+interface DbCard {
+  suit: DbSuit
+  rank: DbRank
+  value: number
+  color: DbColor
+  index: number
+}
+
+type DbDeck = DbCard[]
+
 export interface Database {
   public: {
     Tables: {
@@ -34,12 +48,13 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       shuffles: {
         Row: {
           id: string
           user_id: string | null
-          cards: Json
+          cards: DbDeck
           is_saved: boolean
           is_shared: boolean
           share_code: string | null
@@ -48,7 +63,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id?: string | null
-          cards: Json
+          cards: DbDeck
           is_saved?: boolean
           is_shared?: boolean
           share_code?: string | null
@@ -57,12 +72,13 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string | null
-          cards?: Json
+          cards?: DbDeck
           is_saved?: boolean
           is_shared?: boolean
           share_code?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       achievements: {
         Row: {
@@ -89,6 +105,7 @@ export interface Database {
           achieved_at?: string
           count?: number
         }
+        Relationships: []
       }
       shared_shuffles: {
         Row: {
@@ -109,6 +126,7 @@ export interface Database {
           views?: number
           last_viewed_at?: string
         }
+        Relationships: []
       }
       friends: {
         Row: {
@@ -135,13 +153,19 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_shared_shuffle_views: {
+        Args: {
+          shuffle_id_param: string
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

@@ -50,6 +50,11 @@ export async function GET(request: Request) {
         throw new Error('No user found after confirming email')
       }
 
+      if (!user.email) {
+        console.error('No email found after confirming email')
+        throw new Error('No email found after confirming email')
+      }
+
       // Check if the user profile already exists
       const { data: existingProfile, error: profileError } = await supabase
         .from('users')
