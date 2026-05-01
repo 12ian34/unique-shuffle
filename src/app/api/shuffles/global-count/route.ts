@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { globalStats } from '@/lib/db/schema'
 import { sql } from 'drizzle-orm'
 import { ErrorType, ErrorSeverity, createError } from '@/lib/errors'
+import { ensurePublicDataTables } from '@/lib/db/public-schema'
 
 // Force dynamic execution to prevent caching and ensure cookies are read
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic'
 // Fetch the global shuffle count
 export async function GET() {
   try {
+    await ensurePublicDataTables()
+
     const [globalCountData] = await db
       .select({ count: globalStats.count })
       .from(globalStats)
@@ -38,6 +41,8 @@ export async function GET() {
 
 export async function POST() {
   try {
+    await ensurePublicDataTables()
+
     const [globalCountData] = await db
       .insert(globalStats)
       .values({

@@ -3,6 +3,7 @@ import { generateRandomString } from '@/lib/utils'
 import { db } from '@/lib/db'
 import { publicSharedShuffles } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { ensurePublicDataTables } from '@/lib/db/public-schema'
 import {
   ErrorType,
   ErrorSeverity,
@@ -13,6 +14,8 @@ import {
 // Share a shuffle
 export async function POST(request: Request) {
   try {
+    await ensurePublicDataTables()
+
     const { cards, patterns = [], achievementIds = [], displayName, profileId } = await request.json()
 
     if (!Array.isArray(cards) || cards.length !== 52) {
@@ -73,6 +76,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    await ensurePublicDataTables()
+
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
 

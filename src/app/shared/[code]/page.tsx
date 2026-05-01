@@ -12,6 +12,7 @@ import { SharedShuffleTracker } from '@/components/shared-shuffle-tracker'
 import { db } from '@/lib/db'
 import { publicSharedShuffles } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
+import { ensurePublicDataTables } from '@/lib/db/public-schema'
 
 export const revalidate = 0
 
@@ -21,6 +22,8 @@ interface PageProps {
 }
 
 async function findShuffle(code: string) {
+  await ensurePublicDataTables()
+
   const [shuffle] = await db
     .select()
     .from(publicSharedShuffles)

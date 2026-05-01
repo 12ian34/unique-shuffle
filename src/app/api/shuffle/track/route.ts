@@ -3,9 +3,12 @@ import { db } from '@/lib/db'
 import { globalStats } from '@/lib/db/schema'
 import { sql } from 'drizzle-orm'
 import { createValidationError, ErrorSeverity, ErrorType, createError } from '@/lib/errors'
+import { ensurePublicDataTables } from '@/lib/db/public-schema'
 
 export async function POST(request: Request) {
   try {
+    await ensurePublicDataTables()
+
     const { cards } = await request.json()
 
     if (!Array.isArray(cards) || cards.length !== 52) {

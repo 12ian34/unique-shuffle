@@ -404,7 +404,9 @@ export default function HomePage() {
                   {isShuffleSaved ? (
                     <>
                       <BookmarkFilledIcon className='h-4 w-4 text-primary' />
-                      <span>saved</span>
+                      <span>
+                        {currentShuffle?.achievement_ids.length ? 'auto-saved' : 'saved'}
+                      </span>
                     </>
                   ) : (
                     <>
