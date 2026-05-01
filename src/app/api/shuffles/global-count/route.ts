@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import supabaseAdmin from '@/lib/supabase-admin'
-import { ErrorType, ErrorSeverity, createError, createDatabaseError } from '@/lib/errors'
+import { db } from '@/lib/db'
+import { userProfiles } from '@/lib/db/schema'
+import { sql } from 'drizzle-orm'
+import { ErrorType, ErrorSeverity, createError } from '@/lib/errors'
 
 // Force dynamic execution to prevent caching and ensure cookies are read
 export const dynamic = 'force-dynamic'
@@ -9,19 +11,11 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     // Get the sum of total_shuffles from all users
-    const { data: globalCountData, error: globalCountError } = await supabaseAdmin
-      .from('users')
-      .select('total_shuffles')
+    const [globalCountData] = await db
+      .select({ count: sql<number>`coalesce(sum(${userProfiles.totalShuffles}), 0)` })
+      .from(userProfiles)
 
-    if (globalCountError) {
-      const appError = createDatabaseError('Failed to fetch global shuffle sum', {
-        originalError: globalCountError,
-      })
-      return NextResponse.json({ error: appError }, { status: 500 })
-    }
-
-    // Calculate the sum
-    const count = globalCountData?.reduce((sum, user) => sum + (user.total_shuffles || 0), 0) || 0
+    const count = Number(globalCountData?.count || 0)
 
     return NextResponse.json(
       {

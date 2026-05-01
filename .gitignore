@@ -40,7 +40,7 @@ next-env.d.ts
 .vscode/
 .idea/
 
-# Supabase
+# Local database tooling
 .branches
 .temp
 

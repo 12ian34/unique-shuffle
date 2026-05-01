@@ -1,9 +1,10 @@
-import { createClient } from '@/lib/supabase-server'
 import { ImageResponse } from 'next/og'
 import { findPatterns } from '@/lib/achievements'
-import supabaseAdmin from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
 import type { Card } from '@/types'
+import { db } from '@/lib/db'
+import { shuffles, userProfiles } from '@/lib/db/schema'
+import { eq, or } from 'drizzle-orm'
 
 export const runtime = 'edge'
 
@@ -84,25 +85,11 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Get the shuffle data
-    const supabase = await createClient()
-    let shuffle = null
-
-    // Try to get shuffle by ID
-    let { data: shuffleData } = await supabase.from('shuffles').select('*').eq('id', code).single()
-
-    if (shuffleData) {
-      shuffle = shuffleData
-    } else {
-      // Try by share_code
-      const { data: shuffleByShareCode } = await supabase
-        .from('shuffles')
-        .select('*')
-        .eq('share_code', code)
-        .single()
-
-      shuffle = shuffleByShareCode
-    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const conditions = uuidRegex.test(code)
+      ? or(eq(shuffles.id, code), eq(shuffles.shareCode, code))
+      : eq(shuffles.shareCode, code)
+    const [shuffle] = await db.select().from(shuffles).where(conditions).limit(1)
 
     // If no shuffle found, return default image
     if (!shuffle) {
@@ -172,12 +159,12 @@ export async function GET(req: NextRequest) {
 
     // Get username if available
     let username = 'anon'
-    if (shuffle?.user_id) {
-      const { data: userData } = await supabaseAdmin
-        .from('users')
-        .select('username')
-        .eq('id', shuffle.user_id)
-        .single()
+    if (shuffle?.userId) {
+      const [userData] = await db
+        .select({ username: userProfiles.username })
+        .from(userProfiles)
+        .where(eq(userProfiles.id, shuffle.userId))
+        .limit(1)
 
       if (userData?.username) {
         username = userData.username

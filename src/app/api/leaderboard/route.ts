@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
-import supabaseAdmin from '@/lib/supabase-admin'
+import { db } from '@/lib/db'
+import { achievements, friends, userProfiles } from '@/lib/db/schema'
+import { getCurrentUser } from '@/lib/auth/session'
 import { LEADERBOARD_PAGE_SIZE } from '@/lib/constants'
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import {
   ErrorType,
   ErrorSeverity,
@@ -16,8 +18,6 @@ const VALID_DB_SORT_COLUMNS = ['total_shuffles', 'shuffle_streak']
 
 // Get leaderboard data
 export async function GET(request: Request) {
-  const supabase = await createClient()
-
   try {
     const { searchParams } = new URL(request.url)
     const sortBy = searchParams.get('sort') || 'total_shuffles'
@@ -41,33 +41,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error }, { status: 400 })
     }
 
-    // Get the current user for friends filtering
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     // Get friends if filtering by friends only
     let friendIds: string[] = []
     if (friendsOnly && user) {
       // Get accepted friendships where the user is either the requester or the recipient
-      const { data: friendships, error: friendshipsError } = await supabase
-        .from('friends')
-        .select('user_id, friend_id')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .eq('status', 'accepted')
-
-      if (friendshipsError) {
-        const error = createDatabaseError('Failed to fetch friends data', {
-          originalError: friendshipsError,
-        })
-        handleError(error)
-        return NextResponse.json({ error }, { status: 500 })
-      }
+      const friendships = await db
+        .select({ userId: friends.userId, friendId: friends.friendId })
+        .from(friends)
+        .where(
+          and(
+            eq(friends.status, 'accepted'),
+            or(eq(friends.userId, user.id), eq(friends.friendId, user.id))
+          )
+        )
 
       // Extract friend IDs
       if (friendships && friendships.length > 0) {
         friendIds = friendships.map((friendship) =>
-          friendship.user_id === user.id ? friendship.friend_id : friendship.user_id
+          friendship.userId === user.id ? friendship.friendId : friendship.userId
         )
       }
 
@@ -75,91 +68,49 @@ export async function GET(request: Request) {
       friendIds.push(user.id)
     }
 
-    // Get users with their shuffle stats
-    let query = supabaseAdmin.from('users').select('id, username, total_shuffles, shuffle_streak')
-
-    // Apply friends filter if needed
-    if (friendsOnly && friendIds.length > 0) {
-      query = query.in('id', friendIds)
+    if (friendsOnly && friendIds.length === 0) {
+      return NextResponse.json({ data: [] }, { status: 200 })
     }
 
-    // Only apply database sorting for columns that exist in the database
-    // For achievementCount we'll sort in-memory after fetching
-    if (VALID_DB_SORT_COLUMNS.includes(sortBy)) {
-      query = query.order(sortBy as any, { ascending: false })
-    } else {
-      // Default sort if the requested sort column doesn't exist in DB
-      query = query.order('total_shuffles', { ascending: false })
-    }
+    const achievementCount = sql<number>`count(distinct ${achievements.achievementId})`
+    const conditions = friendsOnly ? inArray(userProfiles.id, friendIds) : undefined
+    const orderBy =
+      sortBy === 'achievementCount'
+        ? desc(achievementCount)
+        : sortBy === 'shuffle_streak'
+        ? desc(userProfiles.shuffleStreak)
+        : desc(userProfiles.totalShuffles)
 
-    const { data: users, error: usersError } = await query
+    const users = await db
+      .select({
+        userId: userProfiles.id,
+        username: userProfiles.username,
+        totalShuffles: userProfiles.totalShuffles,
+        shuffleStreak: userProfiles.shuffleStreak,
+        achievementCount,
+      })
+      .from(userProfiles)
+      .leftJoin(achievements, eq(userProfiles.id, achievements.userId))
+      .where(conditions)
+      .groupBy(userProfiles.id)
+      .orderBy(orderBy, asc(userProfiles.username))
       .limit(LEADERBOARD_PAGE_SIZE)
-      .range((page - 1) * LEADERBOARD_PAGE_SIZE, page * LEADERBOARD_PAGE_SIZE - 1)
+      .offset((page - 1) * LEADERBOARD_PAGE_SIZE)
 
-    if (usersError || !users) {
-      const error = createDatabaseError('Failed to fetch users data', {
-        originalError: usersError || 'No users returned',
-      })
-      handleError(error)
-      return NextResponse.json({ error }, { status: 500 })
-    }
-
-    // Get all user IDs to fetch achievement counts
-    const userIds = users.map((user) => user.id)
-
-    // Get all achievements for these users
-    const { data: achievements, error: achievementsError } = await supabaseAdmin
-      .from('achievements')
-      .select('user_id, achievement_id')
-      .in('user_id', userIds)
-
-    if (achievementsError) {
-      const error = createDatabaseError('Failed to fetch achievements data', {
-        originalError: achievementsError,
-      })
-      handleError(error)
-      return NextResponse.json({ error }, { status: 500 })
-    }
-
-    // Count unique achievement types per user
-    const achievementCounts: Record<string, number> = {}
-    if (achievements) {
-      // Create a Set of unique achievement_ids per user
-      const uniqueAchievementsByUser: Record<string, Set<string>> = {}
-
-      achievements.forEach((achievement) => {
-        const userId = achievement.user_id
-        const achievementId = achievement.achievement_id
-
-        if (!uniqueAchievementsByUser[userId]) {
-          uniqueAchievementsByUser[userId] = new Set()
-        }
-
-        uniqueAchievementsByUser[userId].add(achievementId)
-      })
-
-      // Count the size of each Set to get unique achievement count
-      Object.entries(uniqueAchievementsByUser).forEach(([userId, achievementSet]) => {
-        achievementCounts[userId] = achievementSet.size
-      })
-    }
-
-    // Transform data to match LeaderboardEntry type
-    let leaderboard = users.map((user) => ({
-      userId: user.id,
-      username: user.username,
-      totalShuffles: user.total_shuffles,
-      shuffleStreak: user.shuffle_streak,
-      achievementCount: achievementCounts[user.id] || 0,
+    const leaderboard = users.map((entry) => ({
+      ...entry,
+      achievementCount: Number(entry.achievementCount || 0),
     }))
-
-    // Sort based on requested field if not already sorted by database
-    if (sortBy === 'achievementCount') {
-      leaderboard.sort((a, b) => b.achievementCount - a.achievementCount)
-    }
 
     return NextResponse.json({ data: leaderboard }, { status: 200 })
   } catch (error) {
+    if (error instanceof Error && error.message.includes('syntax')) {
+      const appError = createDatabaseError('Failed to fetch leaderboard data', {
+        originalError: error.message,
+      })
+      handleError(appError)
+      return NextResponse.json({ error: appError }, { status: 500 })
+    }
     // Use our structured error handling
     const appError = createError(
       'Failed to fetch leaderboard data',

@@ -12,11 +12,9 @@ import { useRouter } from 'next/navigation'
 import { refreshShuffleStats } from '@/components/global-shuffle-counter'
 import { refreshUserStats } from '@/components/user-stats-provider'
 import { BookmarkIcon, BookmarkFilledIcon } from '@radix-ui/react-icons'
-import { generateRandomString } from '@/lib/utils'
 import { ToastButton } from '@/components/ui/toast-button'
 import { trackEvent } from '@/lib/analytics'
 import { usePostHog } from 'posthog-js/react'
-import { Session } from '@supabase/supabase-js'
 import dynamic from 'next/dynamic'
 
 // Add dynamic component loading
@@ -29,7 +27,7 @@ const ShuffleDisplay = dynamic(() =>
 
 export default function HomePage() {
   const router = useRouter()
-  const { session, supabase, isLoading: isAuthLoading } = useAuth()
+  const { session, isLoading: isAuthLoading } = useAuth()
   const [shuffledDeck, setShuffledDeck] = useState<Deck | null>(null)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [isShuffling, setIsShuffling] = useState(false)
@@ -65,13 +63,11 @@ export default function HomePage() {
       // Fetch previously earned achievements (using client from context)
       const fetchAchievements = async () => {
         if (!session.user) return
-        const { data: userAchievements } = await supabase
-          .from('achievements')
-          .select('achievement_id')
-          .eq('user_id', session.user.id)
+        const response = await fetch('/api/achievements', { cache: 'no-store' })
+        const { data: userAchievements } = response.ok ? await response.json() : { data: [] }
 
-        const previouslyEarnedAchievementIds = new Set(
-          userAchievements?.map((a) => a.achievement_id) || []
+        const previouslyEarnedAchievementIds = new Set<string>(
+          userAchievements?.map((a: { achievement_id: string }) => a.achievement_id) || []
         )
         setUserPreviousAchievements(previouslyEarnedAchievementIds)
       }
@@ -85,7 +81,7 @@ export default function HomePage() {
         isAuthenticated: !!session,
       })
     }
-  }, [session, supabase, isAuthLoading, router]) // Add supabase, isAuthLoading to dependencies
+  }, [session, isAuthLoading, router])
 
   // Create ref to store previously earned achievements
   const userPreviousAchievementsRef = useRef(new Set<string>())
@@ -180,9 +176,6 @@ export default function HomePage() {
         patternTypes: foundPatterns.map((p) => p.type),
       })
 
-      // Get the current user and auth session
-      const accessToken = session?.access_token
-
       // If not authenticated, show a toast with info about signing in AND check achievements client-side
       if (!session) {
         // Check achievements client-side for non-authenticated users
@@ -224,31 +217,28 @@ export default function HomePage() {
 
       let saveSuccessful = false
 
-      if (accessToken) {
-        // Track the shuffle via API with auth token included in headers
-        try {
-          const response = await fetch('/api/shuffle/track', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            credentials: 'include',
-            body: JSON.stringify({ cards: animatedDeck }),
-          })
+      try {
+        const response = await fetch('/api/shuffle/track', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ cards: animatedDeck }),
+        })
 
-          if (response.ok) {
-            const data = await response.json()
-            saveSuccessful = true
+        if (response.ok) {
+          const data = await response.json()
+          saveSuccessful = true
 
-            // Store the shuffle ID for save functionality
-            if (data.shuffle && data.shuffle.id) {
-              setCurrentShuffleId(data.shuffle.id)
-              setIsShuffleSaved(data.shuffle.is_saved || false)
-            }
+          // Store the shuffle ID for save functionality
+          if (data.shuffle && data.shuffle.id) {
+            setCurrentShuffleId(data.shuffle.id)
+            setIsShuffleSaved(data.shuffle.is_saved || false)
+          }
 
-            // Update any earned achievements
-            if (data.achievements && data.achievements.length > 0) {
+          // Update any earned achievements
+          if (data.achievements && data.achievements.length > 0) {
               // Store all earned achievements
               setEarnedAchievements(data.achievements)
 
@@ -279,8 +269,8 @@ export default function HomePage() {
               }
             }
 
-            // If we received userStats in the response, update the UI immediately
-            if (data.userStats) {
+          // If we received userStats in the response, update the UI immediately
+          if (data.userStats) {
               // Dispatch event for immediate user stats update
               const statsUpdateEvent = new CustomEvent('statsUpdate', {
                 detail: {
@@ -295,21 +285,21 @@ export default function HomePage() {
               refreshShuffleStats()
               refreshUserStats()
             }
-          } else {
-            console.error('API failed with status:', response.status)
-            const errorData = await response.json().catch(() => ({}))
-            console.error('Error details:', errorData)
-            // API failed, we'll try direct DB access below
-          }
-        } catch (fetchError) {
-          console.error('Error in fetch call:', fetchError)
-          // Fetch call failed, we'll try direct DB access below
+        } else {
+          console.error('API failed with status:', response.status)
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Error details:', errorData)
         }
+      } catch (fetchError) {
+        console.error('Error in fetch call:', fetchError)
       }
 
-      // Only if the API method failed, try the direct method
-      if (!saveSuccessful && session) {
-        await saveShuffleDirect(session, animatedDeck)
+      if (!saveSuccessful) {
+        toast({
+          title: 'shuffle not saved',
+          description: 'there was a problem saving this shuffle to your account.',
+          variant: 'destructive',
+        })
       }
     } catch (error) {
       console.error('Error processing shuffle:', error)
@@ -326,96 +316,6 @@ export default function HomePage() {
       shuffleId: currentShuffleId,
       deckSize: animatedDeck?.length || 52,
       patternCount: patterns.length,
-    })
-  }
-
-  // Helper function to save shuffle directly to DB
-  const saveShuffleDirect = async (session: Session, deck: Deck) => {
-    if (!session?.user) {
-      return
-    }
-
-    try {
-      // Get user stats first
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
-
-      if (userData) {
-        // Save shuffle directly
-        const { data: shuffle, error: shuffleError } = await supabase
-          .from('shuffles')
-          .insert({
-            user_id: session.user.id,
-            cards: deck,
-            is_shared: true, // Mark as shared so it can be viewed by ID
-            share_code: generateRandomString(10), // Generate a share code for easy sharing
-          })
-          .select()
-          .single()
-
-        if (shuffleError) {
-          console.error('Error saving shuffle directly:', shuffleError)
-          return
-        }
-
-        if (shuffle) {
-          // Store the shuffle ID for save functionality
-          setCurrentShuffleId(shuffle.id)
-          setIsShuffleSaved(shuffle.is_saved || false)
-
-          // Update user stats
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
-              total_shuffles: (userData.total_shuffles || 0) + 1,
-              last_shuffle_date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-              updated_at: new Date().toISOString(),
-              // Note: shuffle_streak is managed by the database trigger
-            })
-            .eq('id', session.user.id)
-
-          if (updateError) {
-            console.error('Error updating user stats:', updateError)
-            return
-          }
-
-          // Get updated user stats after the update
-          const { data: updatedUser, error: fetchUpdatedUserError } = await supabase
-            .from('users')
-            .select('total_shuffles, shuffle_streak, last_shuffle_date')
-            .eq('id', session.user.id)
-            .single()
-
-          if (fetchUpdatedUserError) {
-            console.error('Error fetching updated user stats:', fetchUpdatedUserError)
-            // Fallback to refresh API if we couldn't get updated stats
-            refreshShuffleStats()
-            refreshUserStats()
-          } else {
-            // Dispatch event with updated stats for immediate user update
-            const statsUpdateEvent = new CustomEvent('statsUpdate', {
-              detail: {
-                userStats: updatedUser,
-              },
-            })
-            window.dispatchEvent(statsUpdateEvent)
-            // Also trigger refresh for global count
-            refreshShuffleStats()
-          }
-        }
-      } else {
-        // User data not found for direct DB access
-      }
-    } catch (error) {
-      console.error('Error in direct DB access:', error)
-    }
-
-    // Track shuffle saved
-    trackEvent('shuffle_saved', {
-      shuffleId: currentShuffleId,
     })
   }
 
@@ -454,23 +354,16 @@ export default function HomePage() {
     setIsSaving(true)
 
     try {
-      // Generate a random share code
-      const shareCode = generateRandomString(10)
+      const response = await fetch('/api/shuffle/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shuffleId: currentShuffleId, isSaved: true }),
+      })
 
-      // Use direct Supabase client to update the shuffle
-      const { data: updatedShuffle, error } = await supabase
-        .from('shuffles')
-        .update({
-          is_saved: true,
-          is_shared: true,
-          // Generate a share_code when saving to make it easier to share later
-          share_code: shareCode,
-        })
-        .eq('id', currentShuffleId)
-        .select()
-        .single()
-
-      if (error) {
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
         console.error('Error saving shuffle:', error)
         toast({
           title: 'error saving shuffle',

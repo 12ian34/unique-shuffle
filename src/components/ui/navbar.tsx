@@ -15,7 +15,7 @@ interface NavbarProps {
 
 export function Navbar({ className }: NavbarProps) {
   const pathname = usePathname()
-  const { session, signOut } = useAuth()
+  const { session } = useAuth()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const navLinksRef = useRef<HTMLDivElement>(null)
   const [showLeftIndicator, setShowLeftIndicator] = useState(false)

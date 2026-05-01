@@ -36,7 +36,7 @@ Unique Shuffle is a web application that allows users to shuffle playing cards, 
 
 ### User Accounts
 
-- Users can sign up and log in using email authentication via Supabase
+- Users can sign up and log in using email authentication via Neon Auth
 - User profiles display stats and achievements
 - Users maintain a persistent collection of saved shuffles
 - Authentication status persists across sessions
@@ -85,7 +85,7 @@ Unique Shuffle is a web application that allows users to shuffle playing cards, 
 - about
 
 and fixed below those is a mini stats bar with the following info:
-"global shuffles: <x> your shuffles: <y> daily streak: <z>"
+"global shuffles:  your shuffles:  daily streak: "
 These stats check for changes each time a user hits shuffle.
 The global shuffles check for changes every 30 seconds.
 
@@ -125,7 +125,7 @@ The global shuffles check for changes every 30 seconds.
 
 ### Database Schema
 
-- **users**: User profiles linked to Supabase auth
+- **user_profiles**: App profile and stats records keyed by Neon Auth user id
 - **shuffles**: All shuffle data with card patterns
 - **achievements**: Records of earned achievements
 - **shared_shuffles**: Analytics for shared shuffles
@@ -133,7 +133,7 @@ The global shuffles check for changes every 30 seconds.
 
 ### Authentication
 
-- Email-based authentication using Supabase Auth
+- Email-based authentication using Neon Auth
 - Secure session management
 - Protected routes for authenticated features
 
@@ -182,7 +182,7 @@ The global shuffles check for changes every 30 seconds.
 - Comprehensive error logging with structured error objects for debugging
 - Fallback UI components for when data cannot be loaded
 
-### Supabase Suggested Types
+### Neon/Drizzle Suggested Types
 
 Strongly suggested (feel free to change if there is good reason to do so, but make sure you explain why):
 
@@ -333,12 +333,12 @@ export interface Database {
 }
 ```
 
-### Supabase Suggested Initial Migration
+### Drizzle Suggested Initial Migration
 
 ```sql
 -- Create a simplified schema for Unique Shuffle application
 
--- Create users table linked to Supabase Auth
+-- Create user profile table keyed by Neon Auth user id
 CREATE TABLE public.users (
   id UUID REFERENCES auth.users PRIMARY KEY,
   username TEXT NOT NULL,
@@ -563,3 +563,4 @@ Complete list of patterns to be detected:
 - Achievement-based onboarding to encourage exploration
 - Quick tips throughout the interface
 - Onboarding completion tracking with the ability to reset/review
+

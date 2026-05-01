@@ -1,29 +1,22 @@
-import { createClient } from '@/lib/supabase-server'
+import { db } from '@/lib/db'
+import { userProfiles } from '@/lib/db/schema'
+import { getCurrentUser } from '@/lib/auth/session'
 import { NextResponse } from 'next/server'
+import { sql } from 'drizzle-orm'
 import { ErrorType, ErrorSeverity, createError } from '@/lib/errors'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const supabase = await createClient()
-
-    // Test authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     // Test querying a table
-    const { data: userCount, error: userError } = await supabase
-      .from('users')
-      .select('count(*)', { count: 'exact', head: true })
+    const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(userProfiles)
 
     return NextResponse.json({
       status: 'success',
       authenticated: !!user,
       user: user ? { id: user.id, email: user.email } : null,
-      userCount,
-      authError: authError?.message,
-      userError: userError?.message,
+      userCount: Number(userCount?.count || 0),
     })
   } catch (error) {
     const appError = createError(

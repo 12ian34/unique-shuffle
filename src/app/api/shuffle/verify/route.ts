@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
-import supabaseAdmin from '@/lib/supabase-admin'
-import { PostgrestError } from '@supabase/supabase-js'
+import { db } from '@/lib/db'
+import { shuffles } from '@/lib/db/schema'
+import { toDbShuffle } from '@/lib/db/mappers'
+import { eq, isNotNull, sql } from 'drizzle-orm'
 import { ErrorType, ErrorSeverity, createError, createValidationError } from '@/lib/errors'
 
 // Verify if a shuffle exists
@@ -35,8 +36,8 @@ export async function GET(request: Request) {
     // Create diagnostics object to track verification attempts
     const diagnostics = {
       code,
-      byId: { attempted: false, found: false, error: null as PostgrestError | null },
-      byShareCode: { attempted: false, found: false, error: null as PostgrestError | null },
+      byId: { attempted: false, found: false },
+      byShareCode: { attempted: false, found: false },
       totalShuffles: 0,
       shufflesWithShareCodes: 0,
       isUuid: false,
@@ -46,48 +47,39 @@ export async function GET(request: Request) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     diagnostics.isUuid = uuidRegex.test(code)
 
-    // Use admin client for the verification
-    const supabase = supabaseAdmin
-
     // First try by ID
-    diagnostics.byId.attempted = true
-    let { data: shuffleById, error: idError } = await supabase
-      .from('shuffles')
-      .select('id, is_saved, is_shared, share_code, created_at')
-      .eq('id', code)
-      .single()
+    diagnostics.byId.attempted = diagnostics.isUuid
+    const [shuffleById] = diagnostics.isUuid
+      ? await db.select().from(shuffles).where(eq(shuffles.id, code)).limit(1)
+      : []
 
     diagnostics.byId.found = !!shuffleById
-    diagnostics.byId.error = idError
 
     let existingShuffleData = shuffleById
 
     // If not found by ID, try by share_code
     if (!shuffleById) {
       diagnostics.byShareCode.attempted = true
-      const { data: shuffleByShareCode, error: shareCodeError } = await supabase
-        .from('shuffles')
-        .select('id, is_saved, is_shared, share_code, created_at')
-        .eq('share_code', code)
-        .single()
+      const [shuffleByShareCode] = await db
+        .select()
+        .from(shuffles)
+        .where(eq(shuffles.shareCode, code))
+        .limit(1)
 
       diagnostics.byShareCode.found = !!shuffleByShareCode
-      diagnostics.byShareCode.error = shareCodeError
 
       existingShuffleData = shuffleByShareCode
     }
 
     // Get some stats about the database
-    const { count: totalShuffles } = await supabase
-      .from('shuffles')
-      .select('*', { count: 'exact', head: true })
+    const [{ count: totalShuffles }] = await db.select({ count: sql<number>`count(*)` }).from(shuffles)
 
     diagnostics.totalShuffles = totalShuffles || 0
 
-    const { count: shufflesWithShareCodes } = await supabase
-      .from('shuffles')
-      .select('*', { count: 'exact', head: true })
-      .not('share_code', 'is', null)
+    const [{ count: shufflesWithShareCodes }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(shuffles)
+      .where(isNotNull(shuffles.shareCode))
 
     diagnostics.shufflesWithShareCodes = shufflesWithShareCodes || 0
 
@@ -96,7 +88,7 @@ export async function GET(request: Request) {
       {
         exists: !!existingShuffleData,
         diagnostics,
-        shuffle: existingShuffleData || null,
+        shuffle: existingShuffleData ? toDbShuffle(existingShuffleData) : null,
       },
       { headers }
     )

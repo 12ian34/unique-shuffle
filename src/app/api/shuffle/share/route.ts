@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
 import { generateRandomString } from '@/lib/utils'
+import { db } from '@/lib/db'
+import { sharedShuffles, shuffles } from '@/lib/db/schema'
+import { toDbShuffle } from '@/lib/db/mappers'
+import { getCurrentUser } from '@/lib/auth/session'
+import { and, eq } from 'drizzle-orm'
 import {
   ErrorType,
   ErrorSeverity,
@@ -8,19 +12,13 @@ import {
   createAuthError,
   createValidationError,
 } from '@/lib/errors'
-import { DbShuffle } from '@/types'
 
 // Share a shuffle
 export async function POST(request: Request) {
-  const supabase = await createClient()
-
   try {
     const { shuffleId } = await request.json()
 
-    // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json(
@@ -39,11 +37,7 @@ export async function POST(request: Request) {
     }
 
     // Get the shuffle to check if it belongs to the user
-    const { data: shuffle } = await supabase
-      .from('shuffles')
-      .select('*')
-      .eq('id', shuffleId)
-      .single()
+    const [shuffle] = await db.select().from(shuffles).where(eq(shuffles.id, shuffleId)).limit(1)
 
     if (!shuffle) {
       return NextResponse.json(
@@ -60,7 +54,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (shuffle.user_id !== user.id) {
+    if (shuffle.userId !== user.id) {
       return NextResponse.json(
         {
           error: createAuthError('Not authorized to share this shuffle', {
@@ -73,124 +67,41 @@ export async function POST(request: Request) {
     }
 
     // If the shuffle is already shared, just return it
-    if (shuffle.is_shared && shuffle.share_code) {
+    if (shuffle.isShared && shuffle.shareCode) {
       return NextResponse.json({
         success: true,
-        shareCode: shuffle.share_code,
-        shuffle,
+        shareCode: shuffle.shareCode,
+        shuffle: toDbShuffle(shuffle),
       })
-    }
-
-    // Use a transaction to ensure all operations succeed or fail together
-    let shareCode: string
-    let updatedShuffle: DbShuffle
-    let transactionSuccess = false
-
-    // First, attempt to retrieve an existing share_code with a SELECT FOR UPDATE
-    // to lock the row during the transaction
-    const { data: existingData, error: lockError } = await supabase
-      .from('shuffles')
-      .select('share_code')
-      .eq('id', shuffleId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (lockError && lockError.code !== 'PGRST116') {
-      return NextResponse.json(
-        {
-          error: createError(
-            'Failed to lock shuffle for update',
-            ErrorType.DATABASE,
-            ErrorSeverity.ERROR,
-            { supabaseError: lockError },
-            'DATABASE_LOCK_ERROR'
-          ),
-        },
-        { status: 500 }
-      )
     }
 
     // Use the existing share_code if it exists, or generate a new one
-    shareCode = existingData?.share_code || generateRandomString(10)
+    const shareCode = shuffle.shareCode || generateRandomString(10)
 
     // Update the shuffle to mark it as shared
-    const { data: updatedData, error } = await supabase
-      .from('shuffles')
-      .update({
-        is_shared: true,
-        share_code: shareCode,
+    const [updatedShuffle] = await db
+      .update(shuffles)
+      .set({
+        isShared: true,
+        shareCode,
       })
-      .eq('id', shuffleId)
-      .select()
-      .single()
-
-    if (error) {
-      // Transaction failed at the shuffle update stage
-      return NextResponse.json(
-        {
-          error: createError(
-            'Failed to update shuffle sharing status',
-            ErrorType.DATABASE,
-            ErrorSeverity.ERROR,
-            { supabaseError: error },
-            'DATABASE_ERROR'
-          ),
-        },
-        { status: 500 }
-      )
-    }
-
-    updatedShuffle = updatedData
+      .where(and(eq(shuffles.id, shuffleId), eq(shuffles.userId, user.id)))
+      .returning()
 
     // Create a shared_shuffles record if it doesn't exist
-    const { error: sharedError } = await supabase.from('shared_shuffles').upsert(
-      {
-        shuffle_id: shuffleId,
+    await db
+      .insert(sharedShuffles)
+      .values({
+        shuffleId,
         views: 0,
-        last_viewed_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'shuffle_id',
-        ignoreDuplicates: true,
-      }
-    )
-
-    if (sharedError) {
-      // Try to rollback by reverting the shared status
-      try {
-        await supabase
-          .from('shuffles')
-          .update({
-            is_shared: false,
-            // Only remove share_code if we just generated it
-            ...(existingData?.share_code ? {} : { share_code: null }),
-          })
-          .eq('id', shuffleId)
-      } catch (rollbackError) {
-        console.error('Failed to rollback shared status:', rollbackError)
-      }
-
-      return NextResponse.json(
-        {
-          error: createError(
-            'Failed to create shared shuffle record',
-            ErrorType.DATABASE,
-            ErrorSeverity.ERROR,
-            { supabaseError: sharedError },
-            'DATABASE_ERROR'
-          ),
-        },
-        { status: 500 }
-      )
-    }
-
-    // If we got here, the transaction was successful
-    transactionSuccess = true
+        lastViewedAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing()
 
     return NextResponse.json({
       success: true,
       shareCode,
-      shuffle: updatedShuffle,
+      shuffle: toDbShuffle(updatedShuffle),
     })
   } catch (error) {
     const appError = createError(

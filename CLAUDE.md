@@ -87,6 +87,7 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 - 2026-02-01: integrated Supabase auth scaffolding with save/share APIs
 - 2026-02-01: added profile, achievements, friends, and leaderboard data views
 - 2026-02-01: added stats bar and theme toggle with light/dark support
+- 2026-05-01: replaced Supabase auth/data with Neon Auth, Neon Postgres, and Drizzle migrations while keeping Netlify hosting
 
 ## roadmap (product-only)
 - accessibility: keyboard navigation, screen reader support, contrast checks

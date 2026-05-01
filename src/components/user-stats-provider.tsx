@@ -25,7 +25,7 @@ const UserStatsContext = createContext<UserStatsContextType | undefined>(undefin
 let refreshFunction: (() => void) | null = null
 
 export function UserStatsProvider({ children }: { children: ReactNode }) {
-  const { session, supabase } = useAuth()
+  const { session } = useAuth()
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -38,17 +38,16 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true) // Set loading true before fetch
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('total_shuffles, shuffle_streak, last_shuffle_date')
-        .eq('id', session.user.id)
-        .single<UserStats>() // Use the UserStats type here
+      const response = await fetch('/api/profile', {
+        cache: 'no-store',
+      })
 
-      if (error) {
-        console.error('[UserStatsProvider] Error fetching user stats:', error)
+      if (!response.ok) {
+        console.error('[UserStatsProvider] Error fetching user stats:', response.status)
         setUserStats(null)
       } else {
-        setUserStats(data)
+        const data = await response.json()
+        setUserStats(data.profile)
       }
     } catch (err) {
       // Catch potential errors during the async operation itself
@@ -57,7 +56,7 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [session, supabase]) // Add supabase to dependencies
+  }, [session])
 
   // Register the refresh function at the module level
   useEffect(() => {
@@ -78,7 +77,7 @@ export function UserStatsProvider({ children }: { children: ReactNode }) {
     return () => {
       clearInterval(intervalId)
     }
-  }, [fetchUserStats]) // Run whenever fetchUserStats changes (which depends on session/supabase)
+  }, [fetchUserStats])
 
   // Effect for handling manual trigger events (e.g., after shuffle)
   useEffect(() => {

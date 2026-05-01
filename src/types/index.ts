@@ -1,11 +1,3 @@
-import { Database } from './supabase'
-
-export type DbUser = Database['public']['Tables']['users']['Row']
-export type DbShuffle = Database['public']['Tables']['shuffles']['Row']
-export type DbAchievement = Database['public']['Tables']['achievements']['Row']
-export type DbSharedShuffle = Database['public']['Tables']['shared_shuffles']['Row']
-export type DbFriend = Database['public']['Tables']['friends']['Row']
-
 // Card types
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K'
@@ -68,6 +60,52 @@ export interface AchievementCriteria {
     end: string
   }
   special?: string
+}
+
+export interface DbUser {
+  id: string
+  username: string
+  email: string
+  total_shuffles: number
+  shuffle_streak: number
+  last_shuffle_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DbShuffle {
+  id: string
+  user_id: string
+  cards: Deck
+  is_saved: boolean
+  is_shared: boolean
+  share_code: string | null
+  created_at: string
+}
+
+export interface DbAchievement {
+  id: string
+  user_id: string
+  achievement_id: string
+  shuffle_id: string | null
+  achieved_at: string
+  count: number
+}
+
+export interface DbSharedShuffle {
+  id: string
+  shuffle_id: string
+  views: number
+  last_viewed_at: string
+}
+
+export interface DbFriend {
+  id: string
+  user_id: string
+  friend_id: string
+  status: string
+  created_at: string
+  updated_at: string
 }
 
 // User profile with stats

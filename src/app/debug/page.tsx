@@ -6,33 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function DebugPage() {
-  const { session, supabase, isLoading } = useAuth()
+  const { session, isLoading } = useAuth()
   const [debugInfo, setDebugInfo] = useState<any>(null)
 
-  const checkSupabase = async () => {
-    if (!session?.user) {
-      setDebugInfo('User not authenticated.')
-      return
-    }
-
+  const checkBackend = async () => {
     try {
-      // Example: Fetch user data using the client from context
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
-
-      if (userError) throw userError
-
-      // Add any other debug fetching logic here...
-      const combinedInfo = {
-        session,
-        userData,
-        // Add more debug data as needed
-      }
-
-      setDebugInfo(combinedInfo)
+      const response = await fetch('/api/debug', { cache: 'no-store' })
+      setDebugInfo(await response.json())
     } catch (error) {
       setDebugInfo({ error: (error as Error).message })
     }
@@ -62,24 +42,16 @@ export default function DebugPage() {
               <div>
                 <h3 className='font-medium'>Session Info:</h3>
                 <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-40'>
-                  {JSON.stringify(
-                    {
-                      ...session,
-                      access_token: session.access_token ? '[REDACTED]' : null,
-                      refresh_token: session.refresh_token ? '[REDACTED]' : null,
-                    },
-                    null,
-                    2
-                  )}
+                  {JSON.stringify(session, null, 2)}
                 </pre>
               </div>
             )}
 
-            <Button onClick={checkSupabase}>Test Supabase Connection</Button>
+            <Button onClick={checkBackend}>Test Neon Connection</Button>
 
             {debugInfo && (
               <div>
-                <h3 className='font-medium'>Supabase Connection Test:</h3>
+                <h3 className='font-medium'>Neon Connection Test:</h3>
                 <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-60'>
                   {JSON.stringify(debugInfo, null, 2)}
                 </pre>

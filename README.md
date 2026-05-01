@@ -48,24 +48,23 @@ welcome! just [create an issue](https://github.com/12ian34/unique-shuffle/issues
 
 ### prerequisites
 
-- Node.js 18+ and npm/yarn/pnpm
-- Supabase account for backend services
+- Node.js 20.9+ and npm
+- Neon project with Neon Auth enabled
 - PostHog account for analytics (optional)
 
 ### frontend
 
-- next.js 14 with router and react 18
-- react context + hooks, server actions
+- next.js 16 with app router and react 18
+- react context + hooks, server routes
 - tailwind CSS, shadcn/ui
-- framer motion
 - posthog for event tracking and analysis
 
 ### backend
 
 - next.js API Routes, server components
-- postgresql via supabase
-- supabase auth
-- supabase storage
+- postgresql via Neon
+- Neon Auth
+- Drizzle ORM and migrations
 - netlify for deployment and functions
 
 ### contributing
@@ -81,18 +80,14 @@ unique-shuffle/
 │   ├── app/              # Next.js App Router pages and layouts
 │   │   ├── api/          # API routes and serverless functions
 │   │   ├── auth/         # Authentication-related pages
-│   │   ├── dashboard/    # User dashboard components
-│   │   └── shuffle/      # Shuffle generation and display
+│   │   ├── shared/       # Public shared shuffle pages
+│   │   └── profile/      # Profile and saved activity
 │   ├── components/       # Reusable UI components
 │   │   ├── ui/           # Base UI components (shadcn)
-│   │   ├── cards/        # Card rendering components
-│   │   └── layout/       # Layout components
-│   ├── lib/              # Core utilities and services
-│   │   ├── supabase/     # Supabase client and helpers
-│   │   ├── analytics/    # PostHog integration
-│   │   └── utils/        # Shared utility functions
-│   ├── migrations/       # Database migration scripts
+│   │   └── layout/       # Layout and provider components
+│   ├── lib/              # Auth, database, analytics, and utilities
 │   └── types/            # TypeScript type definitions
+├── drizzle/              # Drizzle-generated SQL migrations
 ├── .env.example          # Example environment variables
 ├── package.json          # Project dependencies and scripts
 └── README.md             # Project documentation

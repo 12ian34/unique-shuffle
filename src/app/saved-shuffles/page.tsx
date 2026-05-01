@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
-import { formatDate, generateRandomString } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { DbShuffle } from '@/types'
 import { useToast } from '@/components/ui/use-toast'
 import { Copy, Share2 } from 'lucide-react'
@@ -15,7 +15,7 @@ import { trackEvent } from '@/lib/analytics'
 export default function SavedShufflesPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { session, supabase, isLoading: isAuthLoading } = useAuth()
+  const { session, isLoading: isAuthLoading } = useAuth()
   const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [sharingInProgress, setSharingInProgress] = useState<Record<string, boolean>>({})
@@ -33,13 +33,10 @@ export default function SavedShufflesPage() {
           userId: session.user.id,
         })
 
-        // Fetch all saved shuffles
-        const { data } = await supabase
-          .from('shuffles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('is_saved', true)
-          .order('created_at', { ascending: false })
+        const response = await fetch('/api/shuffle/save', {
+          cache: 'no-store',
+        })
+        const { data } = response.ok ? await response.json() : { data: [] }
 
         setSavedShuffles(data || [])
 
@@ -62,7 +59,7 @@ export default function SavedShufflesPage() {
       // If auth is loaded and there's no user, stop loading
       setIsLoading(false)
     }
-  }, [session, isAuthLoading, supabase])
+  }, [session, isAuthLoading])
 
   const handleShareShuffle = async (shuffleId: string) => {
     // Track share intent (funnel step)
@@ -165,9 +162,17 @@ export default function SavedShufflesPage() {
       // Set deleting state for this specific shuffle
       setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
 
-      // Only update is_saved flag to false
-      // We're not changing the is_shared flag, so shared links will still work
-      await supabase.from('shuffles').update({ is_saved: false }).eq('id', shuffleId)
+      const response = await fetch('/api/shuffle/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shuffleId, isSaved: false }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove saved shuffle')
+      }
 
       // Update local state
       setSavedShuffles(savedShuffles.filter((s) => s.id !== shuffleId))
@@ -264,15 +269,10 @@ export default function SavedShufflesPage() {
       return
     }
 
-    // Verify the shuffle exists before navigating
-    const { data: checkResult, error: checkError } = await supabase
-      .from('shuffles')
-      .select('id, is_saved')
-      .eq('id', shuffleId)
-      .single()
+    const response = await fetch(`/api/shuffle/verify?code=${shuffleId}`)
+    const checkResult = response.ok ? await response.json() : null
 
-    if (checkError || !checkResult) {
-      console.error('Error verifying shuffle:', checkError)
+    if (!checkResult?.exists) {
       toast({
         title: 'error',
         description: (
@@ -289,14 +289,9 @@ export default function SavedShufflesPage() {
       // Track the error
       trackEvent('saved_shuffle_view_error', {
         shuffleId,
-        error: checkError ? 'Database error' : 'Shuffle not found',
+        error: 'Shuffle not found',
       })
       return
-    }
-
-    if (!checkResult.is_saved) {
-      // Fix the saved status
-      await supabase.from('shuffles').update({ is_saved: true }).eq('id', shuffleId)
     }
 
     // Track the view event

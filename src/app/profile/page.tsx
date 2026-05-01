@@ -7,7 +7,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
-import { formatDate, generateRandomString } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { DbShuffle, DbAchievement, UserProfile } from '@/types'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
@@ -22,7 +22,7 @@ import { trackEvent } from '@/lib/analytics'
 export default function ProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { session, supabase, signOut, isLoading: isAuthLoading } = useAuth()
+  const { session, signOut, isLoading: isAuthLoading } = useAuth()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
   const [userAchievements, setUserAchievements] = useState<DbAchievement[]>([])
@@ -38,7 +38,7 @@ export default function ProfilePage() {
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false)
   const [sharingInProgress, setSharingInProgress] = useState<Record<string, boolean>>({})
   const [deletingInProgress, setDeletingInProgress] = useState<Record<string, boolean>>({})
-  const { theme, setTheme } = useTheme()
+  const { theme } = useTheme()
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -50,56 +50,25 @@ export default function ProfilePage() {
 
       setIsLoading(true)
       try {
-        // Fetch base user profile data
-        let {
-          data: userData,
-          error: userError,
-          status,
-        } = await supabase
-          .from('users')
-          // .select(`*, achievements(count), shuffles(count) filter (shuffles.is_saved eq true)`) // Revert complex select
-          .select('*') // Select base user fields
-          .eq('id', session.user.id)
-          .single()
+        const [profileResponse, savedResponse, achievementsResponse] = await Promise.all([
+          fetch('/api/profile', { cache: 'no-store' }),
+          fetch('/api/shuffle/save', { cache: 'no-store' }),
+          fetch('/api/achievements', { cache: 'no-store' }),
+        ])
 
-        if (userError && status !== 406) {
-          // Handle profile not found or other errors
-          // (You might want to add logic here to create a profile if it doesn't exist)
-          throw userError
+        if (!profileResponse.ok) {
+          throw new Error('Failed to load profile')
         }
 
-        if (userData) {
-          // Fetch achievement count
-          const { count: achievementCount, error: achievementError } = await supabase
-            .from('achievements')
-            .select('achievement_id', { count: 'exact', head: true })
-            .eq('user_id', session.user.id)
+        const profileData = await profileResponse.json()
+        const savedData = savedResponse.ok ? await savedResponse.json() : { data: [] }
+        const achievementsData = achievementsResponse.ok
+          ? await achievementsResponse.json()
+          : { data: [] }
 
-          if (achievementError) {
-            console.error('Error fetching achievement count:', achievementError)
-            // Decide how to handle this - maybe default to 0?
-          }
-
-          // Fetch saved shuffles count
-          const { count: savedShuffleCount, error: shuffleCountError } = await supabase
-            .from('shuffles')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', session.user.id)
-            .eq('is_saved', true)
-
-          if (shuffleCountError) {
-            console.error('Error fetching saved shuffle count:', shuffleCountError)
-            // Decide how to handle this - maybe default to 0?
-          }
-
-          // Combine into UserProfile
-          const userProfile: UserProfile = {
-            ...userData,
-            achievementCount: achievementCount || 0,
-            savedShuffleCount: savedShuffleCount || 0,
-          }
-          setUser(userProfile)
-        }
+        setUser(profileData.profile)
+        setSavedShuffles(savedData.data || [])
+        setUserAchievements(achievementsData.data || [])
       } catch (error) {
         console.error('Error loading user data!', error)
         setUser(null)
@@ -114,20 +83,11 @@ export default function ProfilePage() {
       setIsLoading(false)
       router.replace('/auth')
     }
-  }, [session, supabase, isAuthLoading, router])
+  }, [session, isAuthLoading, router])
 
   useEffect(() => {
     async function fetchFriendsData() {
       try {
-        // Get current session for authentication
-        const { data: sessionData } = await supabase.auth.getSession()
-        const session = sessionData?.session
-
-        if (!session?.access_token) {
-          console.error('No access token available')
-          return
-        }
-
         // Clear any existing friends data
         setFriends([])
         setPendingRequests([])
@@ -138,7 +98,6 @@ export default function ProfilePage() {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
             },
           })
 
@@ -164,7 +123,6 @@ export default function ProfilePage() {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
             },
           })
 
@@ -190,51 +148,21 @@ export default function ProfilePage() {
     if (user) {
       fetchFriendsData()
     }
-  }, [user, supabase])
+  }, [user])
 
   const handleSendFriendRequest = async () => {
     if (!friendUsername.trim()) return
 
     setIsSubmitting(true)
     try {
-      // Find user by username
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', friendUsername.trim())
-        .single()
-
-      if (!userData) {
-        toast({
-          title: 'user not found',
-          description: 'no user found with this username.',
-          variant: 'destructive',
-        })
-        return
-      }
-
-      // Get current session for authentication
-      const { data: sessionData } = await supabase.auth.getSession()
-      const session = sessionData?.session
-
-      if (!session?.access_token) {
-        toast({
-          title: 'authentication error',
-          description: 'you need to be logged in to send friend requests.',
-          variant: 'destructive',
-        })
-        return
-      }
-
       // Send friend request
       const response = await fetch('/api/friends', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
         },
         credentials: 'include',
-        body: JSON.stringify({ friendId: userData.id }),
+        body: JSON.stringify({ username: friendUsername.trim() }),
       })
 
       const result = await response.json()
@@ -266,24 +194,10 @@ export default function ProfilePage() {
 
   const handleFriendRequest = async (friendshipId: string, status: 'accepted' | 'rejected') => {
     try {
-      // Get current session for authentication
-      const { data: sessionData } = await supabase.auth.getSession()
-      const session = sessionData?.session
-
-      if (!session?.access_token) {
-        toast({
-          title: 'authentication error',
-          description: 'you need to be logged in to manage friend requests.',
-          variant: 'destructive',
-        })
-        return
-      }
-
       const response = await fetch('/api/friends', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
         },
         credentials: 'include',
         body: JSON.stringify({ friendshipId, status }),
@@ -346,17 +260,16 @@ export default function ProfilePage() {
 
     setIsUpdatingUsername(true)
     try {
-      // Update username in the database
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          username: newUsername.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id)
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: newUsername.trim() }),
+      })
 
-      if (updateError) {
-        throw updateError
+      if (!response.ok) {
+        throw new Error('Failed to update username')
       }
 
       // Update local state
@@ -440,9 +353,17 @@ export default function ProfilePage() {
       // Set deleting state for this specific shuffle
       setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
 
-      // Only update is_saved flag to false
-      // We're not changing the is_shared flag, so shared links will still work
-      await supabase.from('shuffles').update({ is_saved: false }).eq('id', shuffleId)
+      const response = await fetch('/api/shuffle/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shuffleId, isSaved: false }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove shuffle')
+      }
 
       // Update local state
       setSavedShuffles(savedShuffles.filter((s) => s.id !== shuffleId))
@@ -649,15 +570,10 @@ export default function ProfilePage() {
                               return
                             }
 
-                            // Verify the shuffle exists before navigating
-                            const { data: checkResult, error: checkError } = await supabase
-                              .from('shuffles')
-                              .select('id, is_saved')
-                              .eq('id', shuffle.id)
-                              .single()
+                            const response = await fetch(`/api/shuffle/verify?code=${shuffle.id}`)
+                            const checkResult = response.ok ? await response.json() : null
 
-                            if (checkError || !checkResult) {
-                              console.error('Error verifying shuffle:', checkError)
+                            if (!checkResult?.exists) {
                               toast({
                                 title: 'error',
                                 description:
@@ -665,14 +581,6 @@ export default function ProfilePage() {
                                 variant: 'destructive',
                               })
                               return
-                            }
-
-                            if (!checkResult.is_saved) {
-                              // Fix the saved status
-                              await supabase
-                                .from('shuffles')
-                                .update({ is_saved: true })
-                                .eq('id', shuffle.id)
                             }
 
                             router.push(`/shared/${shuffle.id}`)
@@ -693,17 +601,20 @@ export default function ProfilePage() {
                               setSharingInProgress((prev) => ({ ...prev, [shuffle.id]: true }))
 
                               try {
-                                // Generate a share code for the shuffle
-                                const shareCode = generateRandomString(10)
+                                const response = await fetch('/api/shuffle/share', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({ shuffleId: shuffle.id }),
+                                })
 
-                                // Update the shuffle with share code and sharing flag
-                                await supabase
-                                  .from('shuffles')
-                                  .update({
-                                    is_shared: true,
-                                    share_code: shareCode,
-                                  })
-                                  .eq('id', shuffle.id)
+                                if (!response.ok) {
+                                  throw new Error('Failed to share shuffle')
+                                }
+
+                                const data = await response.json()
+                                const shareCode = data.shareCode
 
                                 // Update shuffle in local state
                                 setSavedShuffles(
@@ -725,7 +636,6 @@ export default function ProfilePage() {
                                   variant: 'success',
                                 })
 
-                                const data = { shareCode }
                                 return data
                               } catch (error) {
                                 console.error('Error sharing shuffle:', error)

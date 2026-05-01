@@ -17,7 +17,7 @@ import { trackEvent } from '@/lib/analytics'
 
 export default function AchievementsPage() {
   const router = useRouter()
-  const { session, supabase, isLoading: isAuthLoading } = useAuth()
+  const { session, isLoading: isAuthLoading } = useAuth()
   const [userAchievements, setUserAchievements] = useState<DbAchievement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
@@ -33,16 +33,14 @@ export default function AchievementsPage() {
 
       setIsLoading(true)
       try {
-        const { data, error } = await supabase
-          .from('achievements')
-          .select('achievement_id')
-          .eq('user_id', session.user.id)
+        const response = await fetch('/api/achievements', { cache: 'no-store' })
 
-        if (error) {
-          console.error('Error fetching earned achievements:', error)
+        if (!response.ok) {
+          console.error('Error fetching earned achievements:', response.status)
           setEarnedIds(new Set())
         } else {
-          setEarnedIds(new Set(data.map((a) => a.achievement_id)))
+          const { data } = await response.json()
+          setEarnedIds(new Set(data.map((a: DbAchievement) => a.achievement_id)))
         }
       } catch (err) {
         console.error('Unexpected error fetching achievements:', err)
@@ -58,7 +56,7 @@ export default function AchievementsPage() {
       setIsLoading(false)
       setEarnedIds(new Set())
     }
-  }, [session, supabase, isAuthLoading])
+  }, [session, isAuthLoading])
 
   useEffect(() => {
     if (!isAuthLoading) {
@@ -74,18 +72,14 @@ export default function AchievementsPage() {
       setIsLoading(true)
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-
-        if (user) {
-          const { data } = await supabase
-            .from('achievements')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('achieved_at', { ascending: false })
-
-          setUserAchievements(data || [])
+        if (session?.user) {
+          const response = await fetch('/api/achievements', { cache: 'no-store' })
+          if (response.ok) {
+            const { data } = await response.json()
+            setUserAchievements(data || [])
+          } else {
+            setUserAchievements([])
+          }
         }
       } catch (error) {
         console.error('Error fetching achievements:', error)
@@ -94,8 +88,10 @@ export default function AchievementsPage() {
       }
     }
 
-    fetchUserAchievements()
-  }, [supabase])
+    if (!isAuthLoading) {
+      fetchUserAchievements()
+    }
+  }, [session, isAuthLoading])
 
   // Find achievement details from the list of available achievements
   const getUserAchievementDetails = (achievementId: string) => {

@@ -2,15 +2,23 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
-import { User, Session, SupabaseClient, AuthChangeEvent } from '@supabase/supabase-js'
+import { authClient, useSession } from '@/lib/auth/client'
 import { useAuthTracking } from '@/hooks/use-auth-tracking'
 import { trackEvent } from '@/lib/analytics'
-import { Database } from '@/types/supabase'
+
+interface AuthUser {
+  id: string
+  email?: string | null
+  name?: string | null
+}
+
+interface AuthSession {
+  user: AuthUser
+  session?: unknown
+}
 
 type AuthContextType = {
-  session: Session | null
-  supabase: SupabaseClient<Database, 'public'>
+  session: AuthSession | null
   isLoading: boolean
   signIn: (
     email: string,
@@ -31,15 +39,20 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [supabase] = useState(() =>
-    createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  )
-  const [session, setSession] = useState<Session | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { data, isPending } = useSession()
   const router = useRouter()
+
+  const session = useMemo<AuthSession | null>(() => {
+    if (!data?.user) return null
+    return {
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+      },
+      session: data.session,
+    }
+  }, [data])
 
   const user = useMemo(() => session?.user ?? null, [session])
 
@@ -49,52 +62,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user
       ? {
           email: user.email,
-          username: user.user_metadata?.username,
+          username: user.name,
         }
       : undefined
   )
 
   useEffect(() => {
-    setIsLoading(true)
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, currentSession: Session | null) => {
-        setSession(currentSession)
-        setIsLoading(false)
-
-        if (event === 'SIGNED_IN') {
-          trackEvent('user_signed_in', {
-            method: 'email',
-            userId: currentSession?.user?.id,
-          })
-        } else if (event === 'SIGNED_OUT') {
-          trackEvent('user_signed_out')
-        } else if (event === 'INITIAL_SESSION') {
-          setIsLoading(false)
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Session updated silently
-        } else if (event === 'USER_UPDATED') {
-          trackEvent('user_updated', {
-            userId: currentSession?.user?.id,
-          })
-        }
-      }
-    )
-
-    return () => {
-      subscription?.unsubscribe()
+    if (session?.user) {
+      trackEvent('user_signed_in', {
+        method: 'email',
+        userId: session.user.id,
+      })
     }
-  }, [supabase])
+  }, [session?.user])
 
   const signIn = useCallback(
     async (email: string, password: string) => {
       try {
-        const { error } = await supabase.auth.signInWithPassword({
+        const result = await authClient.signIn.email({
           email,
           password,
         })
+        const error = 'error' in result ? result.error : null
 
         if (error) throw error
 
@@ -110,20 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error }
       }
     },
-    [supabase, router]
+    [router]
   )
 
   const signUp = useCallback(
     async (email: string, password: string, username: string) => {
       try {
-        const { error } = await supabase.auth.signUp({
+        const result = await authClient.signUp.email({
           email,
           password,
-          options: {
-            data: { username },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
+          name: username,
         })
+        const error = 'error' in result ? result.error : null
 
         if (error) throw error
 
@@ -141,28 +128,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error }
       }
     },
-    [supabase]
+    []
   )
 
   const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut()
+      await authClient.signOut()
+      trackEvent('user_signed_out')
       router.refresh()
     } catch (error) {
       console.error('Error signing out:', error)
     }
-  }, [supabase, router])
+  }, [router])
 
   const value = useMemo(
     () => ({
       session,
-      supabase,
-      isLoading,
+      isLoading: isPending,
       signIn,
       signUp,
       signOut,
     }),
-    [session, supabase, isLoading, signIn, signUp, signOut]
+    [session, isPending, signIn, signUp, signOut]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
 import { generateRandomString } from '@/lib/utils'
+import { db } from '@/lib/db'
+import { shuffles } from '@/lib/db/schema'
+import { toDbShuffle } from '@/lib/db/mappers'
+import { getCurrentUser } from '@/lib/auth/session'
+import { and, desc, eq } from 'drizzle-orm'
 import {
   ErrorType,
   ErrorSeverity,
@@ -9,17 +13,40 @@ import {
   createValidationError,
 } from '@/lib/errors'
 
+export async function GET() {
+  try {
+    const user = await getCurrentUser()
+
+    if (!user) {
+      return NextResponse.json({ error: createAuthError('Authentication required') }, { status: 401 })
+    }
+
+    const savedShuffles = await db
+      .select()
+      .from(shuffles)
+      .where(and(eq(shuffles.userId, user.id), eq(shuffles.isSaved, true)))
+      .orderBy(desc(shuffles.createdAt))
+
+    return NextResponse.json({ data: savedShuffles.map(toDbShuffle) })
+  } catch (error) {
+    const appError = createError(
+      'Failed to fetch saved shuffles',
+      ErrorType.SHUFFLE,
+      ErrorSeverity.ERROR,
+      { originalError: error instanceof Error ? error.message : String(error) },
+      'SHUFFLE_FETCH_ERROR'
+    )
+
+    return NextResponse.json({ error: appError }, { status: 500 })
+  }
+}
+
 // Save or unsave a shuffle
 export async function POST(request: Request) {
-  const supabase = await createClient()
-
   try {
     const { shuffleId, isSaved } = await request.json()
 
-    // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
       return NextResponse.json(
@@ -40,11 +67,7 @@ export async function POST(request: Request) {
     }
 
     // Get the shuffle to check if it belongs to the user
-    const { data: shuffle } = await supabase
-      .from('shuffles')
-      .select('*')
-      .eq('id', shuffleId)
-      .single()
+    const [shuffle] = await db.select().from(shuffles).where(eq(shuffles.id, shuffleId)).limit(1)
 
     if (!shuffle) {
       return NextResponse.json(
@@ -61,7 +84,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (shuffle.user_id !== user.id) {
+    if (shuffle.userId !== user.id) {
       return NextResponse.json(
         {
           error: createAuthError('Not authorized to modify this shuffle', {
@@ -74,40 +97,24 @@ export async function POST(request: Request) {
     }
 
     // Update is_saved status
-    const updateData: { is_saved: boolean; share_code?: string } = {
-      is_saved: isSaved,
+    const updateData: { isSaved: boolean; shareCode?: string } = {
+      isSaved,
     }
 
     // If we're saving the shuffle and it doesn't have a share code, generate one
-    if (isSaved && !shuffle.share_code) {
-      updateData.share_code = generateRandomString(10)
+    if (isSaved && !shuffle.shareCode) {
+      updateData.shareCode = generateRandomString(10)
     }
 
-    const { data: updatedShuffle, error } = await supabase
-      .from('shuffles')
-      .update(updateData)
-      .eq('id', shuffleId)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json(
-        {
-          error: createError(
-            'Database operation failed',
-            ErrorType.DATABASE,
-            ErrorSeverity.ERROR,
-            { supabaseError: error },
-            'DATABASE_ERROR'
-          ),
-        },
-        { status: 500 }
-      )
-    }
+    const [updatedShuffle] = await db
+      .update(shuffles)
+      .set(updateData)
+      .where(and(eq(shuffles.id, shuffleId), eq(shuffles.userId, user.id)))
+      .returning()
 
     return NextResponse.json({
       success: true,
-      shuffle: updatedShuffle,
+      shuffle: toDbShuffle(updatedShuffle),
     })
   } catch (error) {
     const appError = createError(
