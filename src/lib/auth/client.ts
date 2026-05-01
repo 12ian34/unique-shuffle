@@ -1,7 +1,15 @@
 'use client'
 
-import { createAuthClient } from '@neondatabase/auth/next'
+export const authClient = {
+  signIn: {
+    email: async () => ({ error: new Error('Authentication has been removed.') }),
+  },
+  signUp: {
+    email: async () => ({ error: new Error('Authentication has been removed.') }),
+  },
+  signOut: async () => undefined,
+}
 
-export const authClient = createAuthClient()
-
-export const { useSession } = authClient
+export function useSession() {
+  return { data: null, isPending: false }
+}

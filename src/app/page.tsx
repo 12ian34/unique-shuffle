@@ -5,12 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createDeck, shuffleDeck } from '@/lib/cards'
 import { findPatterns, checkAchievements } from '@/lib/achievements'
-import { Deck, Pattern, Achievement } from '@/types'
-import { useAuth } from '@/contexts/AuthContext'
+import { Deck, Pattern, Achievement, LocalSavedShuffle } from '@/types'
+import { useLocalProfile } from '@/contexts/LocalProfileContext'
 import { useToast } from '@/components/ui/use-toast'
-import { useRouter } from 'next/navigation'
 import { refreshShuffleStats } from '@/components/global-shuffle-counter'
-import { refreshUserStats } from '@/components/user-stats-provider'
 import { BookmarkIcon, BookmarkFilledIcon } from '@radix-ui/react-icons'
 import { ToastButton } from '@/components/ui/toast-button'
 import { trackEvent } from '@/lib/analytics'
@@ -26,8 +24,7 @@ const ShuffleDisplay = dynamic(() =>
 )
 
 export default function HomePage() {
-  const router = useRouter()
-  const { session, isLoading: isAuthLoading } = useAuth()
+  const { profile, recordShuffle, saveShuffle } = useLocalProfile()
   const [shuffledDeck, setShuffledDeck] = useState<Deck | null>(null)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [isShuffling, setIsShuffling] = useState(false)
@@ -43,6 +40,7 @@ export default function HomePage() {
   const hasProcessedCurrentShuffleRef = useRef(false)
   // Add state for current shuffle ID and saved status
   const [currentShuffleId, setCurrentShuffleId] = useState<string | null>(null)
+  const [currentShuffle, setCurrentShuffle] = useState<LocalSavedShuffle | null>(null)
   const [isShuffleSaved, setIsShuffleSaved] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // Add new state for previously unlocked achievements
@@ -52,36 +50,16 @@ export default function HomePage() {
   >([])
 
   useEffect(() => {
-    // Auth status is now driven by the session object from useAuth
-    setIsAuthenticated(!!session)
+    setIsAuthenticated(true)
+    setUserPreviousAchievements(
+      new Set(profile.earned_achievements.map((achievement) => achievement.achievement_id))
+    )
 
-    // If session exists, refresh stats (already happens in useAuth effect? Maybe remove here)
-    if (session) {
-      // refreshShuffleStats() // Maybe redundant if AuthProvider handles initial load
-      // refreshUserStats()    // Maybe redundant
-
-      // Fetch previously earned achievements (using client from context)
-      const fetchAchievements = async () => {
-        if (!session.user) return
-        const response = await fetch('/api/achievements', { cache: 'no-store' })
-        const { data: userAchievements } = response.ok ? await response.json() : { data: [] }
-
-        const previouslyEarnedAchievementIds = new Set<string>(
-          userAchievements?.map((a: { achievement_id: string }) => a.achievement_id) || []
-        )
-        setUserPreviousAchievements(previouslyEarnedAchievementIds)
-      }
-      fetchAchievements()
-    }
-
-    // Track page view (consider auth loading state)
-    if (!isAuthLoading) {
-      // Only track once auth state is determined
-      trackEvent('home_page_viewed', {
-        isAuthenticated: !!session,
-      })
-    }
-  }, [session, isAuthLoading, router])
+    trackEvent('home_page_viewed', {
+      isAuthenticated: false,
+      storage: 'local',
+    })
+  }, [profile.earned_achievements])
 
   // Create ref to store previously earned achievements
   const userPreviousAchievementsRef = useRef(new Set<string>())
@@ -108,6 +86,7 @@ export default function HomePage() {
     setPatterns([])
     // Reset shuffle save states
     setCurrentShuffleId(null)
+    setCurrentShuffle(null)
     setIsShuffleSaved(false)
 
     // Track shuffle start
@@ -176,130 +155,36 @@ export default function HomePage() {
         patternTypes: foundPatterns.map((p) => p.type),
       })
 
-      // If not authenticated, show a toast with info about signing in AND check achievements client-side
-      if (!session) {
-        // Check achievements client-side for non-authenticated users
-        // Use 0 as shuffle count since we can't track for anonymous users
-        const earnedAchievementsForAnonymous = checkAchievements(animatedDeck, 0)
+      const earned = checkAchievements(animatedDeck, profile.total_shuffles + 1)
+      const result = recordShuffle(animatedDeck, foundPatterns, earned)
+      setCurrentShuffleId(result.shuffle.local_id)
+      setCurrentShuffle(result.shuffle)
+      setIsShuffleSaved(result.shuffle.is_saved)
+      setEarnedAchievements(earned)
+      setNewAchievements(result.newAchievements)
+      setPreviouslyUnlockedAchievements(result.repeatedAchievements)
 
-        // Set the earned achievements for display
-        if (earnedAchievementsForAnonymous.length > 0) {
-          setEarnedAchievements(earnedAchievementsForAnonymous)
-          // For non-authenticated users, all achievements are "new"
-          setNewAchievements(earnedAchievementsForAnonymous)
-          setPreviouslyUnlockedAchievements([])
-        }
-
-        // Show sign-in toast (only once per shuffle)
-        dismiss() // Dismiss any existing toasts first
-        toast({
-          title: 'shuffle not saved',
-          description: (
-            <div className='flex flex-col gap-2'>
-              <p>login to save your shuffles and track achievements!</p>
-              <ToastButton
-                href='/auth?tab=signup'
-                onClick={(e) => {
-                  e.preventDefault()
-                  dismiss() // Dismiss all toasts
-                  router.push('/auth?tab=signup')
-                }}
-              >
-                create an account
-              </ToastButton>
-            </div>
-          ),
-          duration: 5000, // 5 seconds instead of 8
-          variant: 'gradient',
+      if (result.newAchievements.length > 0) {
+        trackEvent('achievements_earned', {
+          achievementCount: result.newAchievements.length,
+          achievementIds: result.newAchievements.map((a) => a.id),
+          achievementTitles: result.newAchievements.map((a) => a.name),
         })
-        return
       }
 
-      let saveSuccessful = false
+      if (result.shuffle.is_saved) {
+        toast({
+          title: 'achievement shuffle saved',
+          description: 'this shuffle was saved locally because it earned an achievement.',
+          variant: 'success',
+        })
+      }
 
       try {
-        const response = await fetch('/api/shuffle/track', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ cards: animatedDeck }),
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          saveSuccessful = true
-
-          // Store the shuffle ID for save functionality
-          if (data.shuffle && data.shuffle.id) {
-            setCurrentShuffleId(data.shuffle.id)
-            setIsShuffleSaved(data.shuffle.is_saved || false)
-          }
-
-          // Update any earned achievements
-          if (data.achievements && data.achievements.length > 0) {
-              // Store all earned achievements
-              setEarnedAchievements(data.achievements)
-
-              // Separate new achievements from previously unlocked ones
-              const newlyEarned: Achievement[] = []
-              const previouslyUnlocked: Achievement[] = []
-
-              data.achievements.forEach((achievement: Achievement) => {
-                if (userPreviousAchievementsRef.current.has(achievement.id)) {
-                  previouslyUnlocked.push(achievement)
-                } else {
-                  newlyEarned.push(achievement)
-                  // Add to our set of previously earned achievements for future shuffles
-                  userPreviousAchievementsRef.current.add(achievement.id)
-                }
-              })
-
-              setNewAchievements(newlyEarned)
-              setPreviouslyUnlockedAchievements(previouslyUnlocked)
-
-              // Track achievements earned
-              if (newlyEarned.length > 0) {
-                trackEvent('achievements_earned', {
-                  achievementCount: newlyEarned.length,
-                  achievementIds: newlyEarned.map((a) => a.id),
-                  achievementTitles: newlyEarned.map((a) => a.name),
-                })
-              }
-            }
-
-          // If we received userStats in the response, update the UI immediately
-          if (data.userStats) {
-              // Dispatch event for immediate user stats update
-              const statsUpdateEvent = new CustomEvent('statsUpdate', {
-                detail: {
-                  userStats: data.userStats,
-                },
-              })
-              window.dispatchEvent(statsUpdateEvent)
-              // Also trigger refresh for global count
-              refreshShuffleStats()
-            } else {
-              // Fallback to refresh from API
-              refreshShuffleStats()
-              refreshUserStats()
-            }
-        } else {
-          console.error('API failed with status:', response.status)
-          const errorData = await response.json().catch(() => ({}))
-          console.error('Error details:', errorData)
-        }
+        await fetch('/api/shuffles/global-count', { method: 'POST' })
+        refreshShuffleStats()
       } catch (fetchError) {
-        console.error('Error in fetch call:', fetchError)
-      }
-
-      if (!saveSuccessful) {
-        toast({
-          title: 'shuffle not saved',
-          description: 'there was a problem saving this shuffle to your account.',
-          variant: 'destructive',
-        })
+        console.error('Error incrementing global count:', fetchError)
       }
     } catch (error) {
       console.error('Error processing shuffle:', error)
@@ -327,24 +212,10 @@ export default function HomePage() {
       shuffleId: currentShuffleId,
     })
 
-    if (!currentShuffleId || !session) {
+    if (!currentShuffleId || !currentShuffle) {
       toast({
         title: 'cannot save shuffle',
-        description: (
-          <div className='flex flex-col gap-2'>
-            <p>please sign in to save shuffles.</p>
-            <ToastButton
-              href='/auth?tab=signup'
-              onClick={(e) => {
-                e.preventDefault()
-                dismiss() // Dismiss all toasts
-                router.push('/auth?tab=signup')
-              }}
-            >
-              sign up here
-            </ToastButton>
-          </div>
-        ),
+        description: 'shuffle again before saving.',
         variant: 'destructive',
         duration: 8000,
       })
@@ -354,47 +225,13 @@ export default function HomePage() {
     setIsSaving(true)
 
     try {
-      const response = await fetch('/api/shuffle/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ shuffleId: currentShuffleId, isSaved: true }),
+      saveShuffle(currentShuffle)
+      setIsShuffleSaved(true)
+      toast({
+        title: 'shuffle saved',
+        description: 'your shuffle has been saved locally.',
+        variant: 'success',
       })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        console.error('Error saving shuffle:', error)
-        toast({
-          title: 'error saving shuffle',
-          description: (
-            <div className='flex flex-col gap-2'>
-              <p>there was a problem saving your shuffle.</p>
-              <ToastButton
-                href='#'
-                variant='destructive'
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleSaveShuffle()
-                }}
-              >
-                try again
-              </ToastButton>
-            </div>
-          ),
-          variant: 'destructive',
-        })
-      } else {
-        setIsShuffleSaved(true)
-        toast({
-          title: 'shuffle saved',
-          description: 'your shuffle has been saved to your profile.',
-          variant: 'success',
-        })
-
-        // Refresh user stats to update saved shuffle count
-        refreshUserStats()
-      }
     } catch (error) {
       console.error('Error saving shuffle:', error)
       toast({
@@ -501,13 +338,9 @@ export default function HomePage() {
           {newAchievements.length > 0 && (
             <Card className='bg-primary/10 border-primary/20 card-hover'>
               <CardHeader>
-                <CardTitle>
-                  {session ? 'new achievements unlocked!' : 'achievements unlocked!'}
-                </CardTitle>
+                <CardTitle>new achievements unlocked!</CardTitle>
                 <CardDescription>
-                  {session
-                    ? 'congratulations on earning these for the first time'
-                    : 'login to save these achievements to your profile'}
+                  these were saved to your local profile on this browser
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -518,7 +351,7 @@ export default function HomePage() {
                       className='flex items-start gap-3 bg-background/50 p-3 rounded-md'
                     >
                       <span className='bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm font-medium'>
-                        {session ? 'new' : 'earned'}
+                        new
                       </span>
                       <div>
                         <p className='font-medium'>{achievement.name}</p>
@@ -527,17 +360,6 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                {!session && newAchievements.length > 0 && (
-                  <div className='mt-4 text-center'>
-                    <Button
-                      onClick={() => router.push('/auth?tab=signup')}
-                      variant='default'
-                      size='sm'
-                    >
-                      sign up to save achievements
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
@@ -572,27 +394,25 @@ export default function HomePage() {
             <CardHeader>
               <div className='flex justify-between items-center'>
                 <CardTitle>shuffled deck</CardTitle>
-                {session && (
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    onClick={handleSaveShuffle}
-                    disabled={isShuffleSaved || isSaving}
-                    className='flex items-center gap-1'
-                  >
-                    {isShuffleSaved ? (
-                      <>
-                        <BookmarkFilledIcon className='h-4 w-4 text-primary' />
-                        <span>saved</span>
-                      </>
-                    ) : (
-                      <>
-                        <BookmarkIcon className='h-4 w-4' />
-                        <span>{isSaving ? 'saving...' : 'save'}</span>
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={handleSaveShuffle}
+                  disabled={isShuffleSaved || isSaving}
+                  className='flex items-center gap-1'
+                >
+                  {isShuffleSaved ? (
+                    <>
+                      <BookmarkFilledIcon className='h-4 w-4 text-primary' />
+                      <span>saved</span>
+                    </>
+                  ) : (
+                    <>
+                      <BookmarkIcon className='h-4 w-4' />
+                      <span>{isSaving ? 'saving...' : 'save'}</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>

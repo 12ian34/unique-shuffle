@@ -5,93 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ScrollableTabsList, TabsTrigger } from '@/components/ui/scrollable-tabs'
 import { achievements } from '@/lib/achievements'
-import { useAuth } from '@/contexts/AuthContext'
+import { useLocalProfile } from '@/contexts/LocalProfileContext'
 import { formatRelativeDate } from '@/lib/utils'
-import { DbAchievement, Achievement } from '@/types'
+import { LocalAchievement } from '@/types'
 import { AchievementShare } from '@/components/achievement-share'
 import { Badge } from '@/components/ui/badge'
 import { Check, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
 import { trackEvent } from '@/lib/analytics'
 
 export default function AchievementsPage() {
-  const router = useRouter()
-  const { session, isLoading: isAuthLoading } = useAuth()
-  const [userAchievements, setUserAchievements] = useState<DbAchievement[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { profile, isLoading } = useLocalProfile()
+  const userAchievements = profile.earned_achievements
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [earnedFilter, setEarnedFilter] = useState<boolean | null>(null)
-  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set())
+  const earnedIds = new Set(userAchievements.map((achievement) => achievement.achievement_id))
 
   useEffect(() => {
-    const fetchEarnedAchievements = async () => {
-      if (!session?.user) {
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      try {
-        const response = await fetch('/api/achievements', { cache: 'no-store' })
-
-        if (!response.ok) {
-          console.error('Error fetching earned achievements:', response.status)
-          setEarnedIds(new Set())
-        } else {
-          const { data } = await response.json()
-          setEarnedIds(new Set(data.map((a: DbAchievement) => a.achievement_id)))
-        }
-      } catch (err) {
-        console.error('Unexpected error fetching achievements:', err)
-        setEarnedIds(new Set())
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (!isAuthLoading && session?.user) {
-      fetchEarnedAchievements()
-    } else if (!isAuthLoading && !session?.user) {
-      setIsLoading(false)
-      setEarnedIds(new Set())
-    }
-  }, [session, isAuthLoading])
-
-  useEffect(() => {
-    if (!isAuthLoading) {
-      trackEvent('achievements_page_viewed', {
-        isAuthenticated: !!session,
-        earnedCount: earnedIds.size,
-      })
-    }
-  }, [isAuthLoading, session, earnedIds.size])
-
-  useEffect(() => {
-    async function fetchUserAchievements() {
-      setIsLoading(true)
-
-      try {
-        if (session?.user) {
-          const response = await fetch('/api/achievements', { cache: 'no-store' })
-          if (response.ok) {
-            const { data } = await response.json()
-            setUserAchievements(data || [])
-          } else {
-            setUserAchievements([])
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching achievements:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (!isAuthLoading) {
-      fetchUserAchievements()
-    }
-  }, [session, isAuthLoading])
+    trackEvent('achievements_page_viewed', {
+      earnedCount: earnedIds.size,
+      storage: 'local',
+    })
+  }, [earnedIds.size])
 
   // Find achievement details from the list of available achievements
   const getUserAchievementDetails = (achievementId: string) => {
@@ -100,7 +34,7 @@ export default function AchievementsPage() {
 
   // Get unique achievement entries (first time each was earned)
   const getUniqueAchievements = () => {
-    const uniqueMap = new Map<string, DbAchievement>()
+    const uniqueMap = new Map<string, LocalAchievement>()
 
     // Sort by date ascending to get the first occurrence of each achievement
     const sortedByDate = [...userAchievements].sort(
@@ -186,20 +120,10 @@ export default function AchievementsPage() {
   const earnedCount = earnedIds.size
   const totalCount = achievements.length
 
-  if (isLoading || isAuthLoading) {
+  if (isLoading) {
     return (
       <div className='text-center py-12 bg-muted/20 rounded-md'>
         <p className='text-muted-foreground mb-4'>Loading...</p>
-      </div>
-    )
-  }
-
-  // Handle not logged in state
-  if (!session?.user) {
-    return (
-      <div className='text-center py-12 bg-muted/20 rounded-md'>
-        <p className='text-muted-foreground mb-4'>login to view your earned achievements.</p>
-        <Button onClick={() => router.push('/auth')}>login</Button>
       </div>
     )
   }

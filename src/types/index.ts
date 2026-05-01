@@ -134,3 +134,36 @@ export interface UserStats {
   shuffle_streak: number | null
   last_shuffle_date: string | null
 }
+
+export interface LocalAchievement {
+  id: string
+  achievement_id: string
+  achieved_at: string
+  local_shuffle_id?: string
+  count: number
+}
+
+export interface LocalSavedShuffle {
+  local_id: string
+  cards: Deck
+  patterns: Pattern[]
+  achievement_ids: string[]
+  created_at: string
+  is_saved: boolean
+  is_shared: boolean
+  share_code: string | null
+  shared_at?: string
+}
+
+export interface LocalProfile {
+  schema_version: 1
+  profile_id: string
+  display_name: string
+  created_at: string
+  updated_at: string
+  total_shuffles: number
+  shuffle_streak: number
+  last_shuffle_date: string | null
+  earned_achievements: LocalAchievement[]
+  saved_shuffles: LocalSavedShuffle[]
+}

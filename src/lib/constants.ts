@@ -7,8 +7,8 @@ export const GLOBAL_SHUFFLES_KEY = 'global_shuffles_count'
 export const NAVIGATION_ITEMS = [
   { name: 'shuffle', path: '/' },
   { name: 'achievements', path: '/achievements' },
-  { name: 'leaderboard', path: '/leaderboard' },
   { name: 'profile', path: '/profile' },
+  { name: 'saved', path: '/saved-shuffles' },
   { name: 'about', path: '/about' },
 ]
 

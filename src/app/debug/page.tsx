@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/AuthContext'
 
 export default function DebugPage() {
-  const { session, isLoading } = useAuth()
   const [debugInfo, setDebugInfo] = useState<any>(null)
 
   const checkBackend = async () => {
@@ -20,38 +18,29 @@ export default function DebugPage() {
 
   return (
     <div className='space-y-6 py-8'>
-      <h1 className='text-2xl font-bold'>Auth Debug</h1>
+      <h1 className='text-2xl font-bold'>Storage Debug</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Auth State</CardTitle>
-          <CardDescription>Current authentication state</CardDescription>
+          <CardTitle>Local-First State</CardTitle>
+          <CardDescription>Current storage model</CardDescription>
         </CardHeader>
         <CardContent>
           <div className='space-y-4'>
             <div>
               <p>
-                <strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}
+                <strong>Storage:</strong> browser localStorage profile
               </p>
               <p>
-                <strong>Logged in:</strong> {session ? 'Yes' : 'No'}
+                <strong>Accounts:</strong> removed
               </p>
             </div>
 
-            {session && (
-              <div>
-                <h3 className='font-medium'>Session Info:</h3>
-                <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-40'>
-                  {JSON.stringify(session, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            <Button onClick={checkBackend}>Test Neon Connection</Button>
+            <Button onClick={checkBackend}>Test Public Backend</Button>
 
             {debugInfo && (
               <div>
-                <h3 className='font-medium'>Neon Connection Test:</h3>
+                <h3 className='font-medium'>Public Backend Test:</h3>
                 <pre className='bg-muted p-2 rounded-md overflow-auto text-xs mt-2 max-h-60'>
                   {JSON.stringify(debugInfo, null, 2)}
                 </pre>

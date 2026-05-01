@@ -102,6 +102,28 @@ export const friends = pgTable(
   (table) => [unique('friends_user_friend_unique').on(table.userId, table.friendId)]
 )
 
+export const globalStats = pgTable('global_stats', {
+  id: text('id').primaryKey(),
+  count: integer('count').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+})
+
+export const publicSharedShuffles = pgTable('public_shared_shuffles', {
+  shareCode: text('share_code').primaryKey(),
+  cards: jsonb('cards').$type<DbCard[]>().notNull(),
+  patterns: jsonb('patterns').$type<Array<{ id: string; name: string; description: string }>>().notNull(),
+  achievementIds: jsonb('achievement_ids').$type<string[]>().notNull(),
+  displayName: text('display_name'),
+  profileHash: text('profile_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  views: integer('views').notNull().default(0),
+  lastViewedAt: timestamp('last_viewed_at', { withTimezone: true, mode: 'string' }),
+})
+
 export type UserProfileRow = typeof userProfiles.$inferSelect
 export type NewUserProfile = typeof userProfiles.$inferInsert
 export type ShuffleRow = typeof shuffles.$inferSelect
@@ -110,3 +132,5 @@ export type AchievementRow = typeof achievements.$inferSelect
 export type NewAchievement = typeof achievements.$inferInsert
 export type SharedShuffleRow = typeof sharedShuffles.$inferSelect
 export type FriendRow = typeof friends.$inferSelect
+export type GlobalStatsRow = typeof globalStats.$inferSelect
+export type PublicSharedShuffleRow = typeof publicSharedShuffles.$inferSelect

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: 'unique shuffle',
     title: 'unique shuffle - discover card patterns',
     description:
-      'Shuffle playing cards, discover hidden patterns, and earn achievements. Create your unique card shuffles and share them with friends.',
+      'Shuffle playing cards, discover hidden patterns, earn achievements, and share selected unique shuffles.',
     images: [
       {
         url: `${process.env.NEXT_PUBLIC_APP_URL}/api/og`,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'unique shuffle - discover card patterns',
     description:
-      'Shuffle playing cards, discover hidden patterns, and earn achievements. Create your unique card shuffles and share them with friends.',
+      'Shuffle playing cards, discover hidden patterns, earn achievements, and share selected unique shuffles.',
     images: [`${process.env.NEXT_PUBLIC_APP_URL}/api/og`],
     creator: '@unique_shuffle',
   },

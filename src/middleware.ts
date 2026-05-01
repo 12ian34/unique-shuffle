@@ -1,9 +1,5 @@
-import { auth } from '@/lib/auth/server'
+import { NextResponse } from 'next/server'
 
-export default auth.middleware({
-  loginUrl: '/auth',
-})
-
-export const config = {
-  matcher: ['/profile/:path*', '/saved-shuffles/:path*'],
+export function middleware() {
+  return NextResponse.next()
 }

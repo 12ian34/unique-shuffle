@@ -27,6 +27,3 @@ export function getDatabaseUrl() {
   )}?sslmode=require`
 }
 
-export function getNeonAuthBaseUrl() {
-  return process.env.NEON_AUTH_BASE_URL || process.env.VITE_NEON_AUTH_URL
-}

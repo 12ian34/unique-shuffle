@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/contexts/AuthContext'
+import { useLocalProfile } from '@/contexts/LocalProfileContext'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
-import { DbShuffle } from '@/types'
+import { LocalSavedShuffle } from '@/types'
 import { useToast } from '@/components/ui/use-toast'
 import { Copy, Share2 } from 'lucide-react'
 import { ToastButton } from '@/components/ui/toast-button'
@@ -15,64 +15,30 @@ import { trackEvent } from '@/lib/analytics'
 export default function SavedShufflesPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { session, isLoading: isAuthLoading } = useAuth()
-  const [savedShuffles, setSavedShuffles] = useState<DbShuffle[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { profile, isLoading, removeShuffle, markShuffleShared } = useLocalProfile()
+  const savedShuffles = profile.saved_shuffles
   const [sharingInProgress, setSharingInProgress] = useState<Record<string, boolean>>({})
   const [deletingInProgress, setDeletingInProgress] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    async function fetchSavedShuffles() {
-      if (!session?.user) return
+    trackEvent('saved_shuffles_page_viewed', {
+      count: savedShuffles.length,
+      storage: 'local',
+    })
+  }, [savedShuffles.length])
 
-      setIsLoading(true)
-
-      try {
-        // Track saved shuffles page view (funnel start)
-        trackEvent('saved_shuffles_page_viewed', {
-          userId: session.user.id,
-        })
-
-        const response = await fetch('/api/shuffle/save', {
-          cache: 'no-store',
-        })
-        const { data } = response.ok ? await response.json() : { data: [] }
-
-        setSavedShuffles(data || [])
-
-        // Track shuffle count (funnel data)
-        trackEvent('saved_shuffles_count', {
-          count: data?.length || 0,
-        })
-      } catch (error) {
-        console.error('Error fetching saved shuffles:', error)
-        setSavedShuffles([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    // Only fetch if auth is not loading and a session exists
-    if (!isAuthLoading && session?.user) {
-      fetchSavedShuffles()
-    } else if (!isAuthLoading && !session?.user) {
-      // If auth is loaded and there's no user, stop loading
-      setIsLoading(false)
-    }
-  }, [session, isAuthLoading])
-
-  const handleShareShuffle = async (shuffleId: string) => {
+  const handleShareShuffle = async (shuffle: LocalSavedShuffle) => {
     // Track share intent (funnel step)
     trackEvent('shuffle_share_intent', {
-      shuffleId,
+      shuffleId: shuffle.local_id,
     })
 
     // Prevent sharing if already in progress
-    if (sharingInProgress[shuffleId]) return
+    if (sharingInProgress[shuffle.local_id]) return
 
     try {
       // Set sharing state for this specific shuffle
-      setSharingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
+      setSharingInProgress((prev) => ({ ...prev, [shuffle.local_id]: true }))
 
       // Use the shared API endpoint for sharing shuffles
       const response = await fetch('/api/shuffle/share', {
@@ -80,7 +46,13 @@ export default function SavedShufflesPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ shuffleId }),
+        body: JSON.stringify({
+          cards: shuffle.cards,
+          patterns: shuffle.patterns,
+          achievementIds: shuffle.achievement_ids,
+          displayName: profile.display_name,
+          profileId: profile.profile_id,
+        }),
       })
 
       if (!response.ok) {
@@ -88,13 +60,7 @@ export default function SavedShufflesPage() {
       }
 
       const data = await response.json()
-
-      // Update local state
-      setSavedShuffles(
-        savedShuffles.map((s) =>
-          s.id === shuffleId ? { ...s, is_shared: true, share_code: data.shareCode } : s
-        )
-      )
+      markShuffleShared(shuffle.local_id, data.shareCode)
 
       toast({
         title: 'shuffle shared',
@@ -104,7 +70,7 @@ export default function SavedShufflesPage() {
 
       // Track the share event
       trackEvent('shuffle_shared', {
-        shuffleId,
+        shuffleId: shuffle.local_id,
         method: 'saved_shuffles_page',
       })
     } catch (error) {
@@ -119,7 +85,7 @@ export default function SavedShufflesPage() {
               variant='destructive'
               onClick={(e) => {
                 e.preventDefault()
-                handleShareShuffle(shuffleId)
+                handleShareShuffle(shuffle)
               }}
             >
               try again
@@ -131,12 +97,12 @@ export default function SavedShufflesPage() {
 
       // Track the share error
       trackEvent('shuffle_share_error', {
-        shuffleId,
+        shuffleId: shuffle.local_id,
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     } finally {
       // Clear sharing state when done
-      setSharingInProgress((prev) => ({ ...prev, [shuffleId]: false }))
+      setSharingInProgress((prev) => ({ ...prev, [shuffle.local_id]: false }))
     }
   }
 
@@ -162,20 +128,7 @@ export default function SavedShufflesPage() {
       // Set deleting state for this specific shuffle
       setDeletingInProgress((prev) => ({ ...prev, [shuffleId]: true }))
 
-      const response = await fetch('/api/shuffle/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ shuffleId, isSaved: false }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to remove saved shuffle')
-      }
-
-      // Update local state
-      setSavedShuffles(savedShuffles.filter((s) => s.id !== shuffleId))
+      removeShuffle(shuffleId)
 
       toast({
         title: 'shuffle removed',
@@ -253,79 +206,39 @@ export default function SavedShufflesPage() {
     )
   }
 
-  const viewShuffle = async (shuffleId: string) => {
+  const viewShuffle = async (shuffle: LocalSavedShuffle) => {
     // Track view intent (funnel step)
     trackEvent('saved_shuffle_view_intent', {
-      shuffleId,
+      shuffleId: shuffle.local_id,
     })
 
-    // Check if it has a valid ID
-    if (!shuffleId) {
+    if (!shuffle.share_code) {
       toast({
-        title: 'error',
-        description: 'this shuffle cannot be viewed because it has no id.',
+        title: 'share required',
+        description: 'share this shuffle first to open a public link.',
         variant: 'destructive',
-      })
-      return
-    }
-
-    const response = await fetch(`/api/shuffle/verify?code=${shuffleId}`)
-    const checkResult = response.ok ? await response.json() : null
-
-    if (!checkResult?.exists) {
-      toast({
-        title: 'error',
-        description: (
-          <div className='flex flex-col gap-2'>
-            <p>this shuffle could not be found. it may have been deleted.</p>
-            <ToastButton href='/' variant='destructive'>
-              shuffle new cards
-            </ToastButton>
-          </div>
-        ),
-        variant: 'destructive',
-      })
-
-      // Track the error
-      trackEvent('saved_shuffle_view_error', {
-        shuffleId,
-        error: 'Shuffle not found',
       })
       return
     }
 
     // Track the view event
     trackEvent('saved_shuffle_viewed', {
-      shuffleId,
+      shuffleId: shuffle.local_id,
     })
 
     // Then navigate to the shuffle page
-    router.push(`/shared/${shuffleId}`)
+    router.push(`/shared/${shuffle.share_code}`)
   }
 
   // Track page view
   useEffect(() => {
-    if (!isAuthLoading) {
-      // Track only when auth state is known
-      trackEvent('saved_shuffles_viewed', {
-        shuffleCount: savedShuffles.length,
-      })
-    }
-  }, [isAuthLoading, savedShuffles.length])
+    trackEvent('saved_shuffles_viewed', {
+      shuffleCount: savedShuffles.length,
+    })
+  }, [savedShuffles.length])
 
-  if (isLoading || isAuthLoading) {
+  if (isLoading) {
     return <div className='text-center py-12'>loading saved shuffles...</div>
-  }
-
-  if (!session?.user) {
-    return (
-      <div className='text-center py-12 bg-muted/20 rounded-md'>
-        <p className='text-muted-foreground mb-4'>
-          you need to be logged in to view your saved shuffles.
-        </p>
-        <Button onClick={() => router.push('/auth')}>login</Button>
-      </div>
-    )
   }
 
   return (
@@ -343,14 +256,14 @@ export default function SavedShufflesPage() {
       ) : (
         <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
           {savedShuffles.map((shuffle) => (
-            <Card key={shuffle.id}>
+            <Card key={shuffle.local_id}>
               <CardHeader className='pb-2'>
                 <CardTitle className='text-lg'>saved shuffle</CardTitle>
                 <CardDescription>{formatDate(shuffle.created_at)}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className='flex flex-col gap-2'>
-                  <Button size='sm' variant='outline' onClick={() => viewShuffle(shuffle.id)}>
+                  <Button size='sm' variant='outline' onClick={() => viewShuffle(shuffle)}>
                     view
                   </Button>
 
@@ -358,18 +271,18 @@ export default function SavedShufflesPage() {
                     <Button
                       size='sm'
                       variant='outline'
-                      onClick={() => handleShareShuffle(shuffle.id)}
-                      disabled={sharingInProgress[shuffle.id]}
+                      onClick={() => handleShareShuffle(shuffle)}
+                      disabled={sharingInProgress[shuffle.local_id]}
                     >
                       <Share2 className='h-4 w-4 mr-1' />
-                      {sharingInProgress[shuffle.id] ? 'sharing...' : 'share'}
+                      {sharingInProgress[shuffle.local_id] ? 'sharing...' : 'share'}
                     </Button>
                   ) : (
                     // Add copy button for already shared shuffles
                     <Button
                       size='sm'
                       variant='outline'
-                      onClick={() => copyShareUrl(shuffle.share_code || shuffle.id)}
+                      onClick={() => copyShareUrl(shuffle.share_code || shuffle.local_id)}
                     >
                       <Copy className='h-4 w-4 mr-1' />
                       copy link
@@ -380,10 +293,10 @@ export default function SavedShufflesPage() {
                     size='sm'
                     variant='outline'
                     className='text-destructive hover:bg-destructive/10'
-                    onClick={() => handleDeleteShuffle(shuffle.id)}
-                    disabled={deletingInProgress[shuffle.id]}
+                    onClick={() => handleDeleteShuffle(shuffle.local_id)}
+                    disabled={deletingInProgress[shuffle.local_id]}
                   >
-                    {deletingInProgress[shuffle.id] ? 'removing...' : 'remove'}
+                    {deletingInProgress[shuffle.local_id] ? 'removing...' : 'remove'}
                   </Button>
                 </div>
               </CardContent>

@@ -12,7 +12,7 @@ a standard deck of 52 playing cards can be arranged in 52! (52 factorial) differ
 
 if every person on Earth generated a trillion shuffles per second since the beginning of the universe, we would have explored only a tiny fraction of all possible arrangements
 
-'unique shuffle' is an online card shuffling game with achievements, pattern detection and social features
+'unique shuffle' is an online card shuffling game with local achievements, pattern detection, saved shuffles, and public share links
 
 https://unique-shuffle.netlify.app
 
@@ -35,10 +35,10 @@ https://unique-shuffle.netlify.app
 - randomly shuffle a virtual deck
 - pattern detection and highlighting
 - achievements
-- shuffle saving
-- shuffle sharing
-- global leaderboard
-- add a friend
+- local shuffle saving
+- public shuffle sharing
+- global shuffle count
+- profile export/import
 
 ## feature requests
 
@@ -49,7 +49,7 @@ welcome! just [create an issue](https://github.com/12ian34/unique-shuffle/issues
 ### prerequisites
 
 - Node.js 20.9+ and npm
-- Neon project with Neon Auth enabled
+- Neon Postgres project
 - PostHog account for analytics (optional)
 
 ### frontend
@@ -63,7 +63,6 @@ welcome! just [create an issue](https://github.com/12ian34/unique-shuffle/issues
 
 - next.js API Routes, server components
 - postgresql via Neon
-- Neon Auth
 - Drizzle ORM and migrations
 - netlify for deployment and functions
 
@@ -79,13 +78,13 @@ unique-shuffle/
 ├── src/
 │   ├── app/              # Next.js App Router pages and layouts
 │   │   ├── api/          # API routes and serverless functions
-│   │   ├── auth/         # Authentication-related pages
+│   │   ├── auth/         # Redirects legacy auth routes to local profile
 │   │   ├── shared/       # Public shared shuffle pages
 │   │   └── profile/      # Profile and saved activity
 │   ├── components/       # Reusable UI components
 │   │   ├── ui/           # Base UI components (shadcn)
 │   │   └── layout/       # Layout and provider components
-│   ├── lib/              # Auth, database, analytics, and utilities
+│   ├── lib/              # Local profile, database, analytics, and utilities
 │   └── types/            # TypeScript type definitions
 ├── drizzle/              # Drizzle-generated SQL migrations
 ├── .env.example          # Example environment variables

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { NAVIGATION_ITEMS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { trackEvent } from '@/lib/analytics'
@@ -15,7 +14,6 @@ interface NavbarProps {
 
 export function Navbar({ className }: NavbarProps) {
   const pathname = usePathname()
-  const { session } = useAuth()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const navLinksRef = useRef<HTMLDivElement>(null)
   const [showLeftIndicator, setShowLeftIndicator] = useState(false)
@@ -24,19 +22,7 @@ export function Navbar({ className }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Filter navigation items to exclude Profile (since it's in the top-right)
-  // and hide items that require authentication
-  const navigationItems = NAVIGATION_ITEMS.filter((item) => {
-    // Hide profile entirely as it's already in the right corner
-    if (item.path === '/profile') {
-      return false
-    }
-
-    // Hide any other auth-required items when not logged in
-    // (can add more conditions here if needed)
-
-    return true
-  })
+  const navigationItems = NAVIGATION_ITEMS
 
   const handleNavigation = (path: string, label: string) => {
     // Track navigation event
@@ -164,32 +150,7 @@ export function Navbar({ className }: NavbarProps) {
           )}
         </div>
 
-        {/* Sign in/out button */}
-        <div className='flex items-center ml-2 flex-shrink-0'>
-          {/* Check session directly instead of derived user */}
-          {session ? (
-            <Link
-              href='/profile'
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap',
-                pathname === '/profile'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground focus-effect'
-              )}
-              onClick={() => handleNavigation('/profile', 'Profile')}
-            >
-              profile
-            </Link>
-          ) : (
-            <Link
-              href='/auth'
-              className='px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
-              onClick={() => handleNavigation('/auth', 'Sign In')}
-            >
-              login
-            </Link>
-          )}
-        </div>
+        <div className='ml-2 flex-shrink-0' aria-hidden='true' />
       </div>
     </nav>
   )

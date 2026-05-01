@@ -1,9 +1,14 @@
-import { createNeonAuth } from '@neondatabase/auth/next/server'
-import { getNeonAuthBaseUrl } from '@/lib/env'
-
-export const auth = createNeonAuth({
-  baseUrl: getNeonAuthBaseUrl() || 'https://missing.neon-auth.local',
-  cookies: {
-    secret: process.env.NEON_AUTH_COOKIE_SECRET || 'missing-neon-auth-cookie-secret-for-builds',
+export const auth = {
+  async getSession() {
+    return { data: null }
   },
-})
+  handler() {
+    return {
+      GET: async () => new Response('Authentication has been removed.', { status: 410 }),
+      POST: async () => new Response('Authentication has been removed.', { status: 410 }),
+    }
+  },
+  middleware() {
+    return () => undefined
+  },
+}

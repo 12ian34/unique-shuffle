@@ -1,7 +1,7 @@
 'use client'
 
 import { Toaster } from '@/components/ui/toaster'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { LocalProfileProvider } from '@/contexts/LocalProfileContext'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PostHogProvider } from '@/components/posthog-provider'
 
@@ -11,13 +11,13 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <AuthProvider>
+    <LocalProfileProvider>
       <ThemeProvider defaultTheme='dark' attribute='class'>
         <PostHogProvider>
           {children}
           <Toaster />
         </PostHogProvider>
       </ThemeProvider>
-    </AuthProvider>
+    </LocalProfileProvider>
   )
 }

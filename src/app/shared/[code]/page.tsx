@@ -10,9 +10,8 @@ import { CopyLinkButton } from '@/components/copy-link-button'
 import { Metadata, ResolvingMetadata } from 'next'
 import { SharedShuffleTracker } from '@/components/shared-shuffle-tracker'
 import { db } from '@/lib/db'
-import { sharedShuffles, shuffles, userProfiles } from '@/lib/db/schema'
-import { getCurrentUser } from '@/lib/auth/session'
-import { and, eq, or, sql } from 'drizzle-orm'
+import { publicSharedShuffles } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 
 export const revalidate = 0
 
@@ -21,27 +20,13 @@ interface PageProps {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 async function findShuffle(code: string) {
-  const conditions = uuidRegex.test(code)
-    ? or(eq(shuffles.id, code), eq(shuffles.shareCode, code))
-    : eq(shuffles.shareCode, code)
-
-  const [shuffle] = await db.select().from(shuffles).where(conditions).limit(1)
-  return shuffle || null
-}
-
-async function getUsername(userId: string | null) {
-  if (!userId) return 'anon'
-
-  const [profile] = await db
-    .select({ username: userProfiles.username })
-    .from(userProfiles)
-    .where(eq(userProfiles.id, userId))
+  const [shuffle] = await db
+    .select()
+    .from(publicSharedShuffles)
+    .where(eq(publicSharedShuffles.shareCode, code))
     .limit(1)
-
-  return profile?.username || 'anon'
+  return shuffle || null
 }
 
 export async function generateMetadata(
@@ -59,7 +44,7 @@ export async function generateMetadata(
     }
   }
 
-  const username = await getUsername(shuffle.userId)
+  const username = shuffle.displayName || 'anon'
   const patterns = findPatterns(shuffle.cards)
   const patternCount = patterns.length
   const patternNames = patterns.map((p) => p.name)
@@ -119,48 +104,23 @@ export default async function SharedShufflePage({ params }: PageProps) {
     redirect('/shuffle-not-found')
   }
 
-  if (!shuffle.isShared) {
-    const user = await getCurrentUser()
-    if (!user || user.id !== shuffle.userId) {
-      redirect('/shuffle-not-found')
-    }
-  }
+  const [updatedShare] = await db
+    .update(publicSharedShuffles)
+    .set({
+      views: sql`${publicSharedShuffles.views} + 1`,
+      lastViewedAt: new Date().toISOString(),
+    })
+    .where(eq(publicSharedShuffles.shareCode, shuffle.shareCode))
+    .returning({ views: publicSharedShuffles.views })
 
-  if (shuffle.isShared) {
-    await db
-      .insert(sharedShuffles)
-      .values({
-        shuffleId: shuffle.id,
-        views: 0,
-        lastViewedAt: new Date().toISOString(),
-      })
-      .onConflictDoNothing()
-
-    await db
-      .update(sharedShuffles)
-      .set({
-        views: sql`${sharedShuffles.views} + 1`,
-        lastViewedAt: new Date().toISOString(),
-      })
-      .where(eq(sharedShuffles.shuffleId, shuffle.id))
-  }
-
-  const [sharedData] = await db
-    .select({ views: sharedShuffles.views })
-    .from(sharedShuffles)
-    .where(eq(sharedShuffles.shuffleId, shuffle.id))
-    .limit(1)
-
-  const username = await getUsername(shuffle.userId)
+  const username = shuffle.displayName || 'anon'
   const patterns = findPatterns(shuffle.cards)
 
   return (
     <div className='space-y-8'>
       <div className='flex justify-between items-center'>
         <BackButton />
-        {shuffle.shareCode && (
-          <CopyLinkButton url={`${process.env.NEXT_PUBLIC_APP_URL}/shared/${shuffle.shareCode}`} />
-        )}
+        <CopyLinkButton url={`${process.env.NEXT_PUBLIC_APP_URL}/shared/${shuffle.shareCode}`} />
       </div>
 
       <Card>
@@ -168,7 +128,7 @@ export default async function SharedShufflePage({ params }: PageProps) {
           <CardTitle>shared shuffle</CardTitle>
           <CardDescription>
             shuffled by {username} on {formatDate(shuffle.createdAt)}
-            {sharedData?.views ? ` • ${sharedData.views} views` : ''}
+            {updatedShare?.views ? ` • ${updatedShare.views} views` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -204,9 +164,9 @@ export default async function SharedShufflePage({ params }: PageProps) {
       </div>
 
       <SharedShuffleTracker
-        shuffleId={shuffle.id}
-        shareCode={shuffle.shareCode || shuffle.id}
-        viewCount={sharedData?.views || 0}
+        shuffleId={shuffle.shareCode}
+        shareCode={shuffle.shareCode}
+        viewCount={updatedShare?.views || 0}
         username={username}
         patternCount={patterns.length}
       />

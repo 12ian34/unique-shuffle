@@ -6,7 +6,7 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 ## purpose and goals
 - make the sheer scale of 52! feel real and fun
 - turn shuffling into a game of discovery (patterns, rarity, milestones)
-- give players ways to save, share, and compare shuffles with friends
+- give players ways to save locally, export/import their profile, and share selected shuffles
 - keep the experience fast, visual, and mobile-friendly
 
 ## user experience at a glance
@@ -23,7 +23,7 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 - animated shuffling sequence with immediate visual feedback
 - full deck displayed in a grid for quick scanning
 - a uniqueness message that frames how unlikely any repeat is
-- login and sign-up options available for saving and sharing
+- saving and achievements work locally without login
 
 ### pattern discovery
 - automatic pattern detection after each shuffle
@@ -43,9 +43,9 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 - shareable achievement text with emojis and copy-to-clipboard (including WhatsApp-ready text)
 
 ### saving and sharing shuffles
-- save shuffles to your account
+- save shuffles to the browser's local profile
 - view your saved shuffle history
-- share a shuffle via a unique link
+- explicitly share a shuffle via a unique public link
 - public view for shared shuffles that preserves the exact arrangement
 - view count tracking for shared shuffles
 - shared shuffles include the same pattern list as the original
@@ -56,14 +56,12 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 - profile page with your totals, streak, and achievements
 - persistent collection of saved shuffles
 - quick access to your recent activity
-- account management options in one place
+- export/import profile JSON and reset local profile
 
-### social and leaderboard
-- add friends and manage requests
-- friends-only leaderboard filter
-- global leaderboard tabs for shuffles, achievements, and streaks
-- see your rank alongside everyone else
-- leaderboard updates after each shuffle
+### global stats
+- every shuffle increments the global shuffle count
+- global stats update after each shuffle
+- individual profiles stay local unless a shuffle is explicitly shared
 
 ### polish and accessibility
 - responsive, mobile-first layout
@@ -73,11 +71,10 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 ## main pages and flows
 - **shuffle**: create a new shuffle, view patterns, save and share
 - **achievements**: timeline, progress, and sharing tools
-- **leaderboard**: global and friends views with stat tabs
-- **profile**: stats, saved shuffles, achievements, and friends
+- **leaderboard**: global shuffle stats
+- **profile**: local stats, saved shuffles, achievements, and export/import
 - **about**: what the app is and links out
 - **shared shuffle**: public view for a specific shared shuffle
-- **auth**: login and sign-up flow for saving, sharing, and social features
 
 ## changelog
 - 2026-02-01: reset this doc to a product-only overview focused on user features
@@ -88,12 +85,12 @@ unique shuffle is a web app that lets anyone shuffle a full 52-card deck and see
 - 2026-02-01: added profile, achievements, friends, and leaderboard data views
 - 2026-02-01: added stats bar and theme toggle with light/dark support
 - 2026-05-01: replaced Supabase auth/data with Neon Auth, Neon Postgres, and Drizzle migrations while keeping Netlify hosting
+- 2026-05-01: removed account auth and moved profile, achievements, and saved shuffles to localStorage; Neon keeps global count and public shared shuffles
 
 ## roadmap (product-only)
 - accessibility: keyboard navigation, screen reader support, contrast checks
 - settings: animation toggle, notification preferences, card display options, privacy controls
-- notifications: friend request alerts, achievement inbox/history, optional email notices
-- account management: password reset, email change, data export, account deletion
+- notifications: achievement inbox/history, optional local preferences
+- profile portability: better export/import UX and local data-loss education
 - onboarding: first-time tutorial and guided tours
-- social expansion: friend search, activity feed, remove/block options
 - mobile polish: bottom navigation on small screens, pull-to-refresh

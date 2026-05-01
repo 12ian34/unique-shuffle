@@ -25,12 +25,12 @@ export default function AboutPage() {
           <ul className='space-y-2 list-disc pl-5'>
             <li>create random shuffles of a standard deck of 52 playing cards</li>
             <li>pattern analysis for each shuffle</li>
-            <li>save shuffles</li>
-            <li>share shuffles</li>
+            <li>save shuffles locally</li>
+            <li>share selected shuffles publicly</li>
             <li>earn achievements</li>
-            <li>track progress</li>
-            <li>global leaderboard</li>
-            <li>friends</li>
+            <li>track local progress</li>
+            <li>export and import your profile</li>
+            <li>contribute to the global shuffle count</li>
           </ul>
         </CardContent>
       </Card>

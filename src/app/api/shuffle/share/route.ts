@@ -1,107 +1,62 @@
 import { NextResponse } from 'next/server'
 import { generateRandomString } from '@/lib/utils'
 import { db } from '@/lib/db'
-import { sharedShuffles, shuffles } from '@/lib/db/schema'
-import { toDbShuffle } from '@/lib/db/mappers'
-import { getCurrentUser } from '@/lib/auth/session'
-import { and, eq } from 'drizzle-orm'
+import { publicSharedShuffles } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import {
   ErrorType,
   ErrorSeverity,
   createError,
-  createAuthError,
   createValidationError,
 } from '@/lib/errors'
 
 // Share a shuffle
 export async function POST(request: Request) {
   try {
-    const { shuffleId } = await request.json()
+    const { cards, patterns = [], achievementIds = [], displayName, profileId } = await request.json()
 
-    const user = await getCurrentUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: createAuthError('Authentication required') },
-        { status: 401 }
-      )
-    }
-
-    if (!shuffleId) {
+    if (!Array.isArray(cards) || cards.length !== 52) {
       return NextResponse.json(
         {
-          error: createValidationError('Missing shuffleId parameter', { param: 'shuffleId' }),
+          error: createValidationError('A 52-card shuffle is required to share', {
+            providedLength: Array.isArray(cards) ? cards.length : 0,
+          }),
         },
         { status: 400 }
       )
     }
 
-    // Get the shuffle to check if it belongs to the user
-    const [shuffle] = await db.select().from(shuffles).where(eq(shuffles.id, shuffleId)).limit(1)
+    const shareCode = generateRandomString(10)
+    const profileHash =
+      typeof profileId === 'string' && profileId.length > 0 ? profileId.slice(0, 8) : null
 
-    if (!shuffle) {
-      return NextResponse.json(
-        {
-          error: createError(
-            'Shuffle not found',
-            ErrorType.DATABASE,
-            ErrorSeverity.ERROR,
-            { shuffleId },
-            'RESOURCE_NOT_FOUND'
-          ),
-        },
-        { status: 404 }
-      )
-    }
-
-    if (shuffle.userId !== user.id) {
-      return NextResponse.json(
-        {
-          error: createAuthError('Not authorized to share this shuffle', {
-            shuffleId,
-            userId: user.id,
-          }),
-        },
-        { status: 403 }
-      )
-    }
-
-    // If the shuffle is already shared, just return it
-    if (shuffle.isShared && shuffle.shareCode) {
-      return NextResponse.json({
-        success: true,
-        shareCode: shuffle.shareCode,
-        shuffle: toDbShuffle(shuffle),
-      })
-    }
-
-    // Use the existing share_code if it exists, or generate a new one
-    const shareCode = shuffle.shareCode || generateRandomString(10)
-
-    // Update the shuffle to mark it as shared
-    const [updatedShuffle] = await db
-      .update(shuffles)
-      .set({
-        isShared: true,
-        shareCode,
-      })
-      .where(and(eq(shuffles.id, shuffleId), eq(shuffles.userId, user.id)))
-      .returning()
-
-    // Create a shared_shuffles record if it doesn't exist
     await db
-      .insert(sharedShuffles)
+      .insert(publicSharedShuffles)
       .values({
-        shuffleId,
+        shareCode,
+        cards,
+        patterns,
+        achievementIds,
+        displayName: typeof displayName === 'string' ? displayName.slice(0, 40) : null,
+        profileHash,
+        createdAt: new Date().toISOString(),
         views: 0,
-        lastViewedAt: new Date().toISOString(),
       })
       .onConflictDoNothing()
 
+    const [sharedShuffle] = await db
+      .select()
+      .from(publicSharedShuffles)
+      .where(eq(publicSharedShuffles.shareCode, shareCode))
+      .limit(1)
+
+    if (!sharedShuffle) {
+      throw new Error('Failed to create shared shuffle')
+    }
+
     return NextResponse.json({
       success: true,
-      shareCode,
-      shuffle: toDbShuffle(updatedShuffle),
+      shareCode: sharedShuffle.shareCode,
     })
   } catch (error) {
     const appError = createError(
@@ -110,6 +65,64 @@ export async function POST(request: Request) {
       ErrorSeverity.ERROR,
       { originalError: error instanceof Error ? error.message : String(error) },
       'SHUFFLE_SHARE_ERROR'
+    )
+
+    return NextResponse.json({ error: appError }, { status: 500 })
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get('code')
+
+    if (!code) {
+      return NextResponse.json(
+        { error: createValidationError('Missing code parameter', { param: 'code' }) },
+        { status: 400 }
+      )
+    }
+
+    const [sharedShuffle] = await db
+      .select()
+      .from(publicSharedShuffles)
+      .where(eq(publicSharedShuffles.shareCode, code))
+      .limit(1)
+
+    if (!sharedShuffle) {
+      return NextResponse.json(
+        {
+          error: createError(
+            'Shared shuffle not found',
+            ErrorType.DATABASE,
+            ErrorSeverity.ERROR,
+            { code },
+            'RESOURCE_NOT_FOUND'
+          ),
+        },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      data: {
+        shareCode: sharedShuffle.shareCode,
+        cards: sharedShuffle.cards,
+        patterns: sharedShuffle.patterns,
+        achievementIds: sharedShuffle.achievementIds,
+        displayName: sharedShuffle.displayName,
+        profileHash: sharedShuffle.profileHash,
+        createdAt: sharedShuffle.createdAt,
+        views: sharedShuffle.views,
+      },
+    })
+  } catch (error) {
+    const appError = createError(
+      'Failed to fetch shared shuffle',
+      ErrorType.SHUFFLE,
+      ErrorSeverity.ERROR,
+      { originalError: error instanceof Error ? error.message : String(error) },
+      'SHUFFLE_SHARE_FETCH_ERROR'
     )
 
     return NextResponse.json({ error: appError }, { status: 500 })
