@@ -53,6 +53,12 @@
 
 ## Product Roadmap
 
+- Make the local-first model obvious before adding new features. Profile and saved-shuffle surfaces should explain that data is stored on this browser and that export is the backup path.
+- Improve first-run backup education. After a first meaningful save or achievement, prompt users to export their profile JSON.
+- Rename or reposition `leaderboard` as `global stats`; per-user rankings are misleading while accounts are removed.
+- Improve export UX by downloading a `.json` file as well as supporting clipboard/file import.
+- Add stronger reset guardrails, such as requiring the user to type `reset` before clearing the local profile.
+- Add rate limiting or abuse protection for global count and public share endpoints.
 - Accessibility: keyboard navigation, screen reader support, and contrast checks.
 - Settings: animation toggle, notification preferences, card display options, and privacy controls.
 - Notifications: achievement inbox/history and optional local notification preferences.
